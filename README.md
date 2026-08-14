@@ -1,6 +1,6 @@
 # Fibonacci Tree
 
-An interactive 3D tree grown by the rules of the Fibonacci sequence, rendered in real time using Three.js. No npm, no bundler, open directly in any modern browser.
+An interactive 3D tree grown by the rules of the Fibonacci sequence, rendered in real time using Three.js. No npm, no bundler, open [Fibonacci Tree](https://tengyanhaiin-star.github.io/Fibonacci-Tree/) directly in any modern browser.
 
 ---
 
@@ -32,7 +32,7 @@ Branch thickness tapers with depth using Fibonacci ratios, and color transitions
 
 | Parameter | Description |
 |-----------|-------------|
-| **Depth** | Number of recursive generations (display value = actual + 1, reflecting the two seed generations of the Fibonacci sequence) |
+| **Depth** | Number of recursive generations (reflecting the two seed generations of the Fibonacci sequence) |
 | **Trunk Length** | Length of the root branch in world units |
 | **Decay Ratio** | Controls how quickly branches shorten with depth. Applied as `ratio^(depth/maxDepth)` for a natural taper |
 | **Fork Angle** | Angle between the two child branches at each split |
@@ -42,12 +42,12 @@ Branch thickness tapers with depth using Fibonacci ratios, and color transitions
 
 ## Interaction
 
-### Desktop (`fibonacci_tree_3d.html`)
+### Desktop
 - **Drag** to rotate the tree
 - **Scroll** to zoom in and out
 - Adjust parameters via the sidebar; the tree rebuilds instantly
 
-### Mobile (`fibonacci_tree_ios.html`)
+### Mobile
 - **Single finger drag** to rotate
 - **Pinch** to zoom
 - Tap **Grow** to watch the tree animate from depth 4 to 16, then loop
