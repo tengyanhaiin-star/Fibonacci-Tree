@@ -1,1654 +1,842 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#0d0d0f">
-<title>LED 像素屏样机</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400&family=Noto+Sans+SC:wght@400&family=Noto+Sans+JP:wght@400&family=Noto+Sans+KR:wght@400&family=Noto+Sans+Arabic:wght@400&family=Space+Grotesk:wght@300;400;600&family=Space+Mono&display=swap" rel="stylesheet">
-<style>
-  @font-face {
-    font-family: 'Unifont';
-    src: url('https://cdn.jsdelivr.net/npm/@fontsource/unifont@5.2.5/files/unifont-latin-400-normal.woff2') format('woff2');
-    font-weight: normal;
-    font-style: normal;
-    font-display: swap;
-  }
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>Fibonacci Tree</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --anthropic-dark: #141413;
+            --anthropic-light: #faf9f5;
+            --anthropic-mid-gray: #b0aea5;
+            --anthropic-light-gray: #e8e6dc;
+            --anthropic-orange: #d97757;
+            --anthropic-green: #788c5d;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
-  :root {
-    --bg:       #0d0d0f;
-    --surface:  #131318;
-    --border:   #2a2a35;
-    --accent:   #c8ff00;
-    --dim:      #555566;
-    --text:     #e8e8f0;
-    --subtext:  #888899;
-    --bezel:    #1c1c24;
-    --bezel-hi: #2e2e3a;
-    --safe-top:    env(safe-area-inset-top, 0px);
-    --safe-right:  env(safe-area-inset-right, 0px);
-    --safe-bottom: env(safe-area-inset-bottom, 0px);
-    --safe-left:   env(safe-area-inset-left, 0px);
-  }
+        html, body {
+            width: 100%; height: 100%;
+            font-family: 'Inter', sans-serif;
+            background: #f5f0e8;
+            color: var(--anthropic-dark);
+            overflow: hidden;
+        }
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Space Grotesk', sans-serif;
-    min-height: 100vh;
-    min-height: 100dvh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding:
-      calc(48px + var(--safe-top))
-      calc(24px + var(--safe-right))
-      calc(80px + var(--safe-bottom))
-      calc(24px + var(--safe-left));
-    -webkit-text-size-adjust: 100%;
-  }
+        /* ── Layout ── */
+        #app {
+            width: 100%;
+            height: 100vh;
+            height: 100dvh;
+        }
 
-  /* ── Header ── */
-  header {
-    width: 100%;
-    max-width: 780px;
-    margin-bottom: 48px;
-  }
-  .eyebrow {
-    font-family: 'Space Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 0.18em;
-    color: var(--accent);
-    text-transform: uppercase;
-    margin-bottom: 10px;
-  }
-  h1 {
-    font-size: clamp(26px, 4vw, 40px);
-    font-weight: 400;
-    letter-spacing: -0.02em;
-    line-height: 1.1;
-    margin-bottom: 8px;
-  }
-  h1 span { color: var(--accent); }
-  .subtitle {
-    font-size: 13px;
-    color: var(--subtext);
-    font-weight: 300;
-  }
+        /* Canvas always fills the full screen */
+        #canvas-wrap {
+            position: fixed;
+            inset: 0;
+            background: #f5f0e8;
+            overflow: hidden;
+        }
+        #canvas-wrap canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+        }
 
-  /* ── Main layout ── */
-  .main {
-    width: 100%;
-    max-width: 780px;
-    display: flex;
-    flex-direction: column;
-    gap: 32px;
-  }
+        /* Drag hint */
+        #drag-hint {
+            position: absolute;
+            bottom: 10px; right: 12px;
+            font-size: 11px;
+            color: rgba(140,130,120,0.8);
+            pointer-events: none;
+        }
 
-  /* ── Device card ── */
-  .device-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    overflow: hidden;
-  }
+        /* ── Bottom panel — floats over canvas ── */
+        #panel {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: rgba(255,255,255,0.97);
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.12);
+            border-radius: 16px 16px 0 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            max-height: 70vh;
+            z-index: 10;
+        }
 
-  .stage {
-    background: #060608;
-    padding: 52px 24px 44px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    position: relative;
-    min-height: 200px;
-    overflow: hidden;
-  }
+        /* Drag handle */
+        #panel-handle {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px 0 4px;
+            cursor: pointer;
+            user-select: none;
+        }
+        #panel-handle .handle-bar {
+            width: 36px; height: 4px;
+            background: var(--anthropic-light-gray);
+            border-radius: 2px;
+            margin-bottom: 8px;
+        }
+        #panel-title-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            padding: 0 16px 8px;
+        }
+        #panel-title {
+            font-family: 'Inter', sans-serif;
+            font-size: 16px;
+            font-weight: 500;
+        }
+        #panel-toggle-btn {
+            font-size: 12px;
+            color: var(--anthropic-orange);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            padding: 4px 8px;
+        }
 
-  .device-stack {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 100%;
-    max-width: calc(var(--canvas-w, 384px) + 72px);
-  }
+        /* Scrollable content */
+        #panel-content {
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 0 16px 20px;
+            flex: 1;
+        }
+        #panel-content.collapsed { display: none; }
 
-  /* Ambient glow — updates dynamically */
-  .stage-glow {
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(ellipse 50% 35% at 50% 50%, rgba(200,255,0,0.06) 0%, transparent 70%);
-    pointer-events: none;
-    transition: background 0.6s ease;
-  }
+        /* Action row (always visible) */
+        #action-row {
+            display: flex;
+            gap: 8px;
+            padding: 8px 16px 10px;
+            border-top: 1px solid var(--anthropic-light-gray);
+            flex-shrink: 0;
+        }
 
-  /* Physical housing */
-  .housing {
-    background: linear-gradient(160deg, var(--bezel-hi) 0%, var(--bezel) 60%, #111118 100%);
-    border: 1.5px solid #383848;
-    border-radius: 7px;
-    padding: 9px 18px 10px;
-    box-shadow:
-      0 0 0 1px rgba(255,255,255,0.04) inset,
-      0 2px 8px rgba(0,0,0,0.8),
-      0 12px 40px rgba(0,0,0,0.7);
-    position: relative;
-    width: 100%;
-    max-width: calc(var(--canvas-w, 384px) + 56px);
-    box-sizing: border-box;
-  }
-  .housing::before, .housing::after {
-    content: '';
-    position: absolute;
-    top: 50%; transform: translateY(-50%);
-    width: 5px; height: 5px;
-    border-radius: 50%;
-    background: #0a0a10;
-    border: 1px solid #333340;
-  }
-  .housing::before { left: 5px; }
-  .housing::after  { right: 5px; }
+        /* ── Controls ── */
+        .section { margin-bottom: 18px; }
+        .section-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--anthropic-mid-gray);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 10px;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .section-title::before { content: '•'; color: var(--anthropic-orange); }
 
-  .screen-bezel {
-    background: #03030a;
-    border: 1px solid #1e1e2c;
-    border-radius: 3px;
-    padding: 5px;
-  }
+        /* Seed row */
+        .seed-row {
+            display: flex; gap: 6px; align-items: center;
+            margin-bottom: 8px;
+        }
+        .seed-input {
+            flex: 1;
+            background: var(--anthropic-light);
+            padding: 8px 10px;
+            border-radius: 8px;
+            font-family: 'Courier Prime', monospace;
+            font-size: 13px;
+            border: 1px solid var(--anthropic-light-gray);
+            text-align: center;
+            color: var(--anthropic-dark);
+            min-width: 0;
+        }
+        .seed-input:focus { outline: none; border-color: var(--anthropic-orange); }
 
-  .screen-inner {
-    position: relative;
-    width: 100%;
-    max-width: var(--canvas-w, 384px);
-    margin: 0 auto;
-  }
+        /* Parameters grid */
+        .params-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .control-group { display: flex; flex-direction: column; gap: 4px; }
+        .control-group label {
+            font-size: 11px;
+            color: var(--anthropic-mid-gray);
+            font-weight: 500;
+        }
+        .control-row { display: flex; align-items: center; gap: 6px; }
+        .control-row input[type="range"] {
+            flex: 1; height: 4px;
+            background: var(--anthropic-light-gray);
+            border-radius: 2px; outline: none;
+            -webkit-appearance: none; min-width: 0;
+        }
+        .control-row input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px; height: 18px;
+            background: var(--anthropic-orange);
+            border-radius: 50%; cursor: pointer;
+        }
+        .val { font-family: 'Courier Prime', monospace; font-size: 10px; color: var(--anthropic-mid-gray); min-width: 32px; text-align: right; }
 
-  /* The canvas — pixelated upscale */
-  #ledCanvas {
-    display: block;
-    width: 100%;
-    max-width: var(--canvas-w, 384px);
-    height: auto;
-    aspect-ratio: var(--canvas-ar, 96 / 16);
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-    border-radius: 1px;
-  }
+        /* Colors grid */
+        .colors-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+        }
+        .color-item { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+        .color-item label { font-size: 9px; color: var(--anthropic-mid-gray); text-align: center; line-height: 1.2; }
+        .color-item input[type="color"] {
+            width: 36px; height: 36px;
+            border: none; border-radius: 8px;
+            cursor: pointer; background: none; padding: 0;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+        }
 
-  /* LED dot-matrix overlay */
-  .dot-overlay {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    border-radius: 1px;
-    background-image:
-      repeating-linear-gradient(0deg,  transparent, transparent 3px, rgba(0,0,0,0.22) 3px, rgba(0,0,0,0.22) 4px),
-      repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(0,0,0,0.22) 3px, rgba(0,0,0,0.22) 4px);
-  }
+        /* Buttons */
+        .btn {
+            flex: 1;
+            background: var(--anthropic-light);
+            color: var(--anthropic-dark);
+            border: 1px solid var(--anthropic-light-gray);
+            padding: 10px 8px;
+            border-radius: 10px;
+            font-family: 'Inter', sans-serif;
+            font-size: 12px; font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            text-align: center;
+        }
+        .btn:active { opacity: 0.7; }
+        .btn-primary { background: var(--anthropic-orange); color: white; border-color: var(--anthropic-orange); }
+        .btn-green   { background: var(--anthropic-green);  color: white; border-color: var(--anthropic-green); }
 
-  .stand      { width: 3px; height: 22px; background: linear-gradient(to bottom, #282834, #181820); border-left: 1px solid #303040; border-right: 1px solid #111118; }
-  .stand-base { width: 60px; height: 6px; background: linear-gradient(to bottom, #232330, #161620); border-radius: 0 0 4px 4px; border: 1px solid #2c2c3a; border-top: none; }
-
-  /* ── Controls panel ── */
-  .controls {
-    padding: 28px 32px 32px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    border-top: 1px solid var(--border);
-  }
-
-  .control-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  label {
-    font-family: 'Space Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--dim);
-  }
-
-  input[type="text"] {
-    background: #0d0d14;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text);
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 16px;
-    padding: 12px 16px;
-    outline: none;
-    transition: border-color 0.2s;
-    width: 100%;
-  }
-  input[type="text"]:focus {
-    border-color: var(--accent);
-  }
-  input[type="text"]::placeholder {
-    color: var(--dim);
-  }
-
-  /* Effects & speed row */
-  .row { display: flex; gap: 16px; flex-wrap: wrap; }
-  .row .control-group { flex: 1; min-width: 160px; }
-
-  .select-wrap {
-    position: relative;
-  }
-  select {
-    appearance: none;
-    background: #0d0d14;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text);
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 14px;
-    padding: 10px 36px 10px 14px;
-    outline: none;
-    width: 100%;
-    cursor: pointer;
-    transition: border-color 0.2s;
-  }
-  select:focus { border-color: var(--accent); }
-  .select-wrap::after {
-    content: '▾';
-    position: absolute;
-    right: 12px; top: 50%;
-    transform: translateY(-50%);
-    color: var(--dim);
-    pointer-events: none;
-    font-size: 12px;
-  }
-
-  input[type="range"] {
-    -webkit-appearance: none;
-    width: 100%;
-    height: 3px;
-    background: var(--border);
-    border-radius: 2px;
-    outline: none;
-    margin-top: 8px;
-  }
-  input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 14px; height: 14px;
-    border-radius: 50%;
-    background: var(--accent);
-    cursor: pointer;
-    box-shadow: 0 0 6px rgba(200,255,0,0.4);
-  }
-  .range-labels {
-    display: flex;
-    justify-content: space-between;
-    font-family: 'Space Mono', monospace;
-    font-size: 9px;
-    color: var(--dim);
-    margin-top: 4px;
-  }
-
-  /* Color presets */
-  .preset-row {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-  .preset-btn {
-    border: 1.5px solid transparent;
-    border-radius: 6px;
-    padding: 5px 12px;
-    font-family: 'Space Mono', monospace;
-    font-size: 10px;
-    cursor: pointer;
-    letter-spacing: 0.06em;
-    transition: border-color 0.15s, transform 0.1s;
-    background: #0d0d14;
-    color: var(--text);
-  }
-  .preset-btn:hover { transform: translateY(-1px); }
-  .preset-btn.active { border-color: var(--accent); }
-
-  .color-picker-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-top: 4px;
-  }
-  .color-picker-row[hidden],
-  .tolerance-row[hidden] { display: none; }
-
-  input[type="color"] {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 44px;
-    height: 44px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: #0d0d14;
-    cursor: pointer;
-    padding: 4px;
-  }
-  input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
-  input[type="color"]::-webkit-color-swatch {
-    border: none;
-    border-radius: 4px;
-  }
-  input[type="color"]::-moz-color-swatch {
-    border: none;
-    border-radius: 4px;
-  }
-
-  .color-hex {
-    font-family: 'Space Mono', monospace;
-    font-size: 11px;
-    color: var(--subtext);
-    letter-spacing: 0.08em;
-  }
-
-  /* Font language hint */
-  .font-hint {
-    font-size: 11px;
-    color: var(--subtext);
-    padding: 10px 14px;
-    background: rgba(200,255,0,0.04);
-    border: 1px solid rgba(200,255,0,0.1);
-    border-radius: 6px;
-    line-height: 1.6;
-  }
-  .font-hint strong { color: var(--accent); font-weight: 400; }
-
-  /* ── Export ── */
-  .export-row {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    flex-wrap: wrap;
-  }
-  .export-btn {
-    background: var(--accent);
-    color: #0d0d0f;
-    border: none;
-    border-radius: 8px;
-    padding: 11px 24px;
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 14px;
-    font-weight: 400;
-    cursor: pointer;
-    letter-spacing: 0.02em;
-    transition: opacity 0.15s, transform 0.1s;
-    white-space: nowrap;
-  }
-  .export-btn:hover  { opacity: 0.88; transform: translateY(-1px); }
-  .export-btn:active { transform: translateY(0); }
-  .export-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-
-  .export-btn-secondary {
-    background: transparent;
-    color: var(--accent);
-    border: 1px solid var(--accent);
-  }
-  .export-btn-secondary:hover { background: rgba(200,255,0,0.08); opacity: 1; }
-
-  .export-status {
-    font-family: 'Space Mono', monospace;
-    font-size: 11px;
-    color: var(--subtext);
-    letter-spacing: 0.06em;
-  }
-  .export-status.ok  { color: var(--accent); }
-  .export-status.err { color: #ff6060; }
-
-  .export-fps {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-    color: var(--subtext);
-    letter-spacing: 0.04em;
-  }
-  .export-fps select {
-    padding: 8px 28px 8px 10px;
-    font-size: 12px;
-    min-width: 88px;
-  }
-
-  /* ── Footer ── */
-  footer {
-    margin-top: 56px;
-    font-family: 'Space Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 0.1em;
-    color: var(--dim);
-    text-align: center;
-    padding: 0 8px;
-  }
-
-  /* ── iPhone / narrow mobile ── */
-  @media (max-width: 480px) {
-    body {
-      padding:
-        calc(20px + var(--safe-top))
-        calc(12px + var(--safe-right))
-        calc(40px + var(--safe-bottom))
-        calc(12px + var(--safe-left));
-    }
-
-    header {
-      margin-bottom: 24px;
-    }
-
-    h1 {
-      font-size: clamp(22px, 7vw, 32px);
-    }
-
-    .subtitle {
-      font-size: 12px;
-      line-height: 1.55;
-    }
-
-    .main {
-      gap: 20px;
-    }
-
-    .device-card {
-      border-radius: 14px;
-    }
-
-    .stage {
-      padding: 24px 8px 20px;
-      min-height: 120px;
-    }
-
-    .housing {
-      padding: 7px 10px 8px;
-      border-radius: 6px;
-    }
-
-    .controls {
-      padding: 18px 14px 22px;
-      gap: 16px;
-    }
-
-    .row {
-      gap: 12px;
-    }
-
-    .row .control-group {
-      flex: 1 1 100%;
-      min-width: 0;
-    }
-
-    select {
-      font-size: 16px;
-      padding-top: 12px;
-      padding-bottom: 12px;
-    }
-
-    input[type="text"] {
-      font-size: 16px;
-    }
-
-    .preset-btn {
-      padding: 8px 10px;
-      min-height: 36px;
-    }
-
-    .export-row {
-      gap: 10px;
-    }
-
-    .export-fps {
-      width: 100%;
-    }
-
-    .export-btn {
-      min-height: 44px;
-      padding: 12px 18px;
-    }
-
-    footer {
-      margin-top: 28px;
-      font-size: 9px;
-      letter-spacing: 0.06em;
-    }
-  }
-</style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+        .seed-btn {
+            background: var(--anthropic-light);
+            border: 1px solid var(--anthropic-light-gray);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 13px; cursor: pointer;
+            color: var(--anthropic-dark);
+        }
+        .seed-btn:active { background: var(--anthropic-orange); color: white; }
+    </style>
 </head>
 <body>
+<div id="app">
+    <!-- Canvas -->
+    <div id="canvas-wrap">
+        <div id="drag-hint">Drag to rotate · Pinch to zoom</div>
+    </div>
 
-<header>
-  <p class="eyebrow">Product Mockup · LED Pixel Display</p>
-  <h1>软屏样机<br><span>自定义文字预览</span></h1>
-  <p class="subtitle">96×16 / 192×32 px · 4× 放大 · Unifont / Noto Sans · 纯色容差算法 · 支持多语言</p>
-</header>
-
-<div class="main">
-
-  <div class="device-card">
-    <!-- Stage -->
-    <div class="stage">
-      <div class="stage-glow" id="stageGlow"></div>
-      <div class="device-stack">
-        <div class="housing">
-          <div class="screen-bezel">
-            <div class="screen-inner">
-              <canvas id="ledCanvas" width="96" height="16"></canvas>
-              <div class="dot-overlay" id="dotOverlay"></div>
+    <!-- Bottom panel -->
+    <div id="panel">
+        <div id="panel-handle" onclick="togglePanel()">
+            <div class="handle-bar"></div>
+            <div id="panel-title-row">
+                <span id="panel-title">Fibonacci Tree</span>
+                <button id="panel-toggle-btn">Show ▴</button>
             </div>
-          </div>
         </div>
-        <div class="stand"></div>
-        <div class="stand-base"></div>
-      </div>
+
+        <div id="panel-content" class="collapsed">
+            <!-- Seed -->
+            <div class="section">
+                <div class="section-title">Seed</div>
+                <div class="seed-row">
+                    <button class="seed-btn" id="btn-prev-seed">←</button>
+                    <input type="number" class="seed-input" id="seed-input" value="12345" onchange="updateSeed()">
+                    <button class="seed-btn" id="btn-next-seed">→</button>
+                    <button class="seed-btn" id="btn-random-seed">✦</button>
+                </div>
+            </div>
+
+            <!-- Parameters -->
+            <div class="section">
+                <div class="section-title">Parameters</div>
+                <div class="params-grid">
+                    <div class="control-group">
+                        <label>Depth</label>
+                        <div class="control-row">
+                            <input type="range" id="depth" min="3" max="15" step="1" value="9" oninput="updateParam('depth',+this.value)">
+                            <span class="val" id="depth-value">10</span>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label>Trunk Length</label>
+                        <div class="control-row">
+                            <input type="range" id="trunkLen" min="100" max="200" step="5" value="160" oninput="updateParam('trunkLen',+this.value)">
+                            <span class="val" id="trunkLen-value">160</span>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label>Decay Ratio</label>
+                        <div class="control-row">
+                            <input type="range" id="lenRatio" min="0.6" max="0.85" step="0.01" value="0.70" oninput="updateParam('lenRatio',+this.value)">
+                            <span class="val" id="lenRatio-value">0.70</span>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label>Fork Angle</label>
+                        <div class="control-row">
+                            <input type="range" id="angle" min="10" max="60" step="1" value="24" oninput="updateParam('angle',+this.value)">
+                            <span class="val" id="angle-value">24</span>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label>Trunk Width</label>
+                        <div class="control-row">
+                            <input type="range" id="baseRadius" min="1" max="15" step="0.5" value="12" oninput="updateParam('baseRadius',+this.value)">
+                            <span class="val" id="baseRadius-value">12</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Colors -->
+            <div class="section">
+                <div class="section-title">Colors</div>
+                <div class="colors-grid">
+                    <div class="color-item">
+                        <input type="color" id="trunkColor" value="#5c3d1e" onchange="updateColor('trunkColor',this.value)">
+                        <label>Trunk</label>
+                    </div>
+                    <div class="color-item">
+                        <input type="color" id="twigColor" value="#788c5d" onchange="updateColor('twigColor',this.value)">
+                        <label>Twig</label>
+                    </div>
+                    <div class="color-item">
+                        <input type="color" id="petalColor" value="#d97757" onchange="updateColor('petalColor',this.value)">
+                        <label>Flower</label>
+                    </div>
+                    <div class="color-item">
+                        <input type="color" id="leafColor" value="#5a8a3c" onchange="updateColor('leafColor',this.value)">
+                        <label>Leaf</label>
+                    </div>
+                    <div class="color-item">
+                        <input type="color" id="bgColor" value="#f5f0e8" onchange="updateColor('bgColor',this.value)">
+                        <label>BG</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action row (always visible) -->
+        <div id="action-row">
+            <button class="btn" id="autoRotateBtn" onclick="toggleAutoPlay()">▶ Grow</button>
+            <button class="btn" id="btn-random-seed-action" onclick="randomSeedAndUpdate()">✦ Random</button>
+            <button class="btn" onclick="resetParameters()">Reset</button>
+            <button class="btn btn-primary" onclick="downloadPNG()">Save</button>
+        </div>
     </div>
-
-    <!-- Controls -->
-    <div class="controls">
-
-      <div class="control-group">
-        <label>第一行文字</label>
-        <input type="text" id="textInput" value="欢迎光临" placeholder="输入第一行文字…" maxlength="40" spellcheck="false">
-      </div>
-      <div class="control-group">
-        <label>第二行文字 <span style="color:var(--dim);font-size:9px;letter-spacing:0.06em;">留空则单行居中显示</span></label>
-        <input type="text" id="textInput2" value="" placeholder="输入第二行文字（可留空）…" maxlength="40" spellcheck="false">
-      </div>
-
-      <div class="row">
-        <div class="control-group">
-          <label>屏幕分辨率</label>
-          <div class="select-wrap">
-            <select id="resSelect">
-              <option value="96x16" selected>96 × 16 px（标准）</option>
-              <option value="192x32">192 × 32 px（大屏）</option>
-            </select>
-          </div>
-        </div>
-        <div class="control-group">
-          <label>动画特效</label>
-          <div class="select-wrap">
-            <select id="effectSelect">
-              <option value="rainbow_wave" selected>彩虹波浪</option>
-              <option value="scroll">横向滚动</option>
-              <option value="wobble">摇摆</option>
-              <option value="pulse">彩虹流动</option>
-              <option value="typewriter">打字机</option>
-              <option value="blink">闪烁</option>
-              <option value="slide">滑入停留</option>
-              <option value="scan">扫描高亮</option>
-              <option value="static">静态彩虹</option>
-            </select>
-          </div>
-        </div>
-      <div class="row">
-        <div class="control-group">
-          <label>显示字体</label>
-          <div class="select-wrap">
-            <select id="fontSelect">
-              <option value="unifont" selected>GNU Unifont · 16×16 像素</option>
-              <option value="noto-auto">Noto Sans · 自动检测</option>
-              <option value="noto-sc">Noto Sans SC · 中文</option>
-              <option value="noto-jp">Noto Sans JP · 日文</option>
-              <option value="noto-kr">Noto Sans KR · 韩文</option>
-              <option value="noto-latin">Noto Sans · 拉丁 / 西里尔</option>
-              <option value="noto-arabic">Noto Sans Arabic · 阿拉伯文</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <div class="row">
-        <div class="control-group">
-          <label>动画速度 <span id="speedLabel" style="color:var(--text);margin-left:8px;">×1.0</span></label>
-          <input type="range" id="speedRange" min="1" max="5" step="1" value="3">
-          <div class="range-labels"><span>慢</span><span>快</span></div>
-        </div>
-        <div class="control-group">
-          <label>字体大小 <span id="sizeLabel" style="color:var(--text);margin-left:8px;">16 px</span></label>
-          <input type="range" id="sizeRange" min="8" max="16" step="8" value="16">
-          <div class="range-labels"><span>小</span><span>大</span></div>
-        </div>
-      </div>
-
-      <div class="control-group">
-        <label>颜色方案</label>
-        <div class="preset-row" id="presetRow">
-          <button class="preset-btn active" data-preset="rainbow" style="border-image: linear-gradient(90deg,#f55,#fa0,#ff0,#0d0,#08f,#a0f) 1;">🌈 彩虹</button>
-          <button class="preset-btn" data-preset="fire" style="color:#ff8040;">🔥 火焰</button>
-          <button class="preset-btn" data-preset="ice" style="color:#60d0ff;">❄ 冰晶</button>
-          <button class="preset-btn" data-preset="gold" style="color:#ffd060;">✦ 金色</button>
-          <button class="preset-btn" data-preset="neon" style="color:#40ffb0;">⚡ 霓虹</button>
-          <button class="preset-btn" data-preset="solid" style="color:#c8ff00;">■ 纯色</button>
-        </div>
-        <div class="color-picker-row" id="colorPickerRow" hidden>
-          <input type="color" id="solidColorInput" value="#c8ff00" title="选择颜色">
-          <span class="color-hex" id="solidColorHex">#C8FF00</span>
-        </div>
-        <div class="control-group tolerance-row" id="toleranceRow" hidden style="margin-top:12px;">
-          <label>颜色容差 <span id="toleranceLabel" style="color:var(--text);margin-left:8px;">100</span></label>
-          <input type="range" id="toleranceRange" min="0" max="200" step="1" value="100">
-          <div class="range-labels"><span>严格</span><span>宽松</span></div>
-        </div>
-      </div>
-
-      <div class="font-hint">
-        <strong>字体说明：</strong><strong>Unifont</strong> 为 16×16 点阵字体，边缘清晰；<strong>Noto Sans</strong> 为平滑矢量字体，显示更美观。纯色模式下可调颜色容差（默认 100），值越大保留像素越多。
-      </div>
-
-      <div class="export-row">
-        <div class="export-fps">
-          <label for="gifFpsSelect">GIF 帧率</label>
-          <div class="select-wrap">
-            <select id="gifFpsSelect">
-              <option value="30" selected>30 fps</option>
-              <option value="60">60 fps</option>
-            </select>
-          </div>
-        </div>
-        <button class="export-btn" id="exportBtn">⬇ 导出 GIF</button>
-        <button class="export-btn export-btn-secondary" id="exportPngBtn" disabled title="需选择静态彩虹特效">⬇ 导出 PNG</button>
-        <div class="export-status" id="exportStatus"></div>
-      </div>
-
-    </div>
-  </div>
-
 </div>
 
-<footer>96 × 16 LED PIXEL DISPLAY SIMULATOR · SCALE 1:4</footer>
-
 <script>
-// ── Font families ─────────────────────────────────────────
-const UNIFONT = "'Unifont', monospace";
-
-const NOTO_FONT_MAP = {
-  sc:     "'Noto Sans SC', sans-serif",
-  jp:     "'Noto Sans JP', sans-serif",
-  kr:     "'Noto Sans KR', sans-serif",
-  latin:  "'Noto Sans', sans-serif",
-  arabic: "'Noto Sans Arabic', sans-serif",
+// ═══════════════════════════════════════════════════════
+// PARAMETERS
+// ═══════════════════════════════════════════════════════
+let params = {
+    seed: 12345, depth: 9, trunkLen: 160, lenRatio: 0.70,
+    angle: 24, jitter: 0, baseRadius: 12,
+    trunkColor: '#5c3d1e', twigColor: '#788c5d',
+    petalColor: '#d97757', leafColor: '#5a8a3c', bgColor: '#f5f0e8',
 };
+const defaultParams = {...params};
 
-function detectNotoFont(text) {
-  if (/[\u4e00-\u9fff\u3400-\u4dbf]/.test(text)) return 'sc';
-  if (/[\u3040-\u30ff\u31f0-\u31ff]/.test(text)) return 'jp';
-  if (/[\uac00-\ud7af\u1100-\u11ff]/.test(text)) return 'kr';
-  if (/[\u0600-\u06ff\u0750-\u077f]/.test(text)) return 'arabic';
-  return 'latin';
+// ═══════════════════════════════════════════════════════
+// SEEDED RANDOM (LCG)
+// ═══════════════════════════════════════════════════════
+// Path-keyed random: each branch node gets a deterministic value
+// based on its position in the tree (seed + path hash), independent of traversal order.
+// This means changing depth never shifts randoms for existing branches.
+let _globalSeed = 12345;
+
+function nodeRand(pathHash, slot) {
+    // Mix seed + path + slot with a fast integer hash
+    let h = (_globalSeed ^ (pathHash * 2654435761)) >>> 0;
+    h = (h ^ (slot * 2246822519)) >>> 0;
+    h ^= h >>> 16;
+    h = Math.imul(h, 0x45d9f3b);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;
 }
 
-function isUnifontSelected() {
-  return document.getElementById('fontSelect').value === 'unifont';
+function nodeRandRange(pathHash, slot, lo, hi) {
+    return lo + nodeRand(pathHash, slot) * (hi - lo);
 }
 
-function getFontFamily() {
-  const sel = document.getElementById('fontSelect').value;
-  if (sel === 'unifont') return UNIFONT;
-  if (sel === 'noto-auto') {
-    const text = document.getElementById('textInput').value + document.getElementById('textInput2').value;
-    return NOTO_FONT_MAP[detectNotoFont(text)];
-  }
-  const key = sel.replace('noto-', '');
-  return NOTO_FONT_MAP[key] || NOTO_FONT_MAP.latin;
-}
-
-function getFontSize() {
-  return parseInt(document.getElementById('sizeRange').value);
-}
-
-function getFont() {
-  return `normal ${getFontSize()}px ${getFontFamily()}`;
-}
-
-// ── Color presets ─────────────────────────────────────────
-const PRESETS = {
-  rainbow: [[255,50,50],[255,140,0],[255,220,0],[50,220,50],[50,180,255],[160,80,255]],
-  fire:    [[255,60,0],[255,120,0],[255,200,0],[255,80,0],[200,30,0]],
-  ice:     [[100,220,255],[150,240,255],[200,255,255],[80,180,255],[160,210,255]],
-  gold:    [[255,200,0],[255,230,80],[255,170,0],[255,240,120],[200,140,0]],
-  neon:    [[0,255,160],[0,220,255],[120,255,0],[0,180,255],[80,255,200]],
-};
-let currentPreset = 'rainbow';
-let solidColor = '#c8ff00';
-
-function hexToRgb(hex) {
-  const n = parseInt(hex.slice(1), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-
-function getActiveColors() {
-  if (currentPreset === 'solid') {
-    const rgb = hexToRgb(solidColor);
-    return [rgb, rgb, rgb];
-  }
-  return PRESETS[currentPreset] || PRESETS.rainbow;
-}
-
-function updateColorPickerVisibility() {
-  const show = currentPreset === 'solid';
-  document.getElementById('colorPickerRow').hidden = !show;
-}
-
-function updateSolidColorHex() {
-  document.getElementById('solidColorHex').textContent = solidColor.toUpperCase();
-}
-
-// ── Solid mode: hard-edge pixel quantization ─────────────
-const BG_RGB = [10, 10, 15];
-const BG_LUM_THRESHOLD = 28;
-
-function getSolidColorTolerance() {
-  const el = document.getElementById('toleranceRange');
-  return el ? parseInt(el.value, 10) : 100;
-}
-
-function isSolidMode() {
-  return currentPreset === 'solid';
-}
-
-function getSolidRgb() {
-  return hexToRgb(solidColor);
-}
-
-function solidFillStyle() {
-  const [r, g, b] = getSolidRgb();
-  return `rgb(${r},${g},${b})`;
-}
-
-function isSolidForegroundPixel(r, g, b) {
-  const [sr, sg, sb] = getSolidRgb();
-  const [br, bg, bb] = BG_RGB;
-  const maxDiff = Math.max(Math.abs(r - sr), Math.abs(g - sg), Math.abs(b - sb));
-  if (maxDiff > getSolidColorTolerance()) return false;
-  const dSolid = (r - sr) ** 2 + (g - sg) ** 2 + (b - sb) ** 2;
-  const dBg = (r - br) ** 2 + (g - bg) ** 2 + (b - bb) ** 2;
-  return dSolid < dBg;
-}
-
-function applySolidQuantize(context, w = W, h = H) {
-  const [sr, sg, sb] = getSolidRgb();
-  const [br, bg, bb] = BG_RGB;
-  const img = context.getImageData(0, 0, w, h);
-  const d = img.data;
-  for (let p = 0; p < d.length; p += 4) {
-    const r = d[p], g = d[p + 1], b = d[p + 2];
-    if (isSolidForegroundPixel(r, g, b)) {
-      d[p] = sr; d[p + 1] = sg; d[p + 2] = sb; d[p + 3] = 255;
-    } else {
-      d[p] = br; d[p + 1] = bg; d[p + 2] = bb; d[p + 3] = 255;
-    }
-  }
-  context.putImageData(img, 0, 0);
-}
-
-function setContextFill(context, x, totalW, colors, phase) {
-  if (isSolidMode()) {
-    context.fillStyle = solidFillStyle();
-  } else {
-    context.fillStyle = makeRainbowGradientOn(context, x, totalW, colors, phase);
-  }
-}
-
-function makeRainbowGradientOn(context, x, totalW, colors, phase) {
-  const grad = context.createLinearGradient(x, 0, x + totalW, 0);
-  const n = colors.length;
-  for (let i = 0; i <= n; i++) {
-    const p = i / n;
-    const [r, g, b] = lerpColor(colors, (p + phase) % 1);
-    grad.addColorStop(p, `rgb(${r},${g},${b})`);
-  }
-  return grad;
-}
-
-function pxFillText(context, text, x, y) {
-  const snap = isSolidMode() || isUnifontSelected();
-  context.fillText(text, snap ? Math.round(x) : x, snap ? Math.round(y) : y);
-}
-
-function updateSolidDisplayMode() {
-  const overlay = document.getElementById('dotOverlay');
-  if (overlay) overlay.hidden = isSolidMode();
-  updateColorPickerVisibility();
-  updateToleranceVisibility();
-  updateExportControls();
-}
-
-function canExportStaticPNG() {
-  return document.getElementById('effectSelect').value === 'static';
-}
-
-function isSolidStaticMode() {
-  return isSolidMode() && canExportStaticPNG();
-}
-
-function updateToleranceVisibility() {
-  const row = document.getElementById('toleranceRow');
-  if (row) row.hidden = !isSolidMode();
-}
-
-function updateExportControls() {
-  const pngBtn = document.getElementById('exportPngBtn');
-  if (!pngBtn) return;
-  const ok = canExportStaticPNG();
-  pngBtn.disabled = !ok;
-  pngBtn.title = ok ? `导出 ${W}×${H} 静态 PNG` : '需选择静态彩虹特效';
-}
-
-// ── Canvas setup ──────────────────────────────────────────
-const canvas = document.getElementById('ledCanvas');
-const ctx = canvas.getContext('2d');
-ctx.imageSmoothingEnabled = false;
-
-// Mutable resolution
-let W = 96, H = 16;
-
-const RESOLUTIONS = {
-  '96x16':  { w: 96,  h: 16,  scale: 4, defaultSize: 16, sizeMin: 8, sizeMax: 16, sizeStep: 8 },
-  '192x32': { w: 192, h: 32,  scale: 2, defaultSize: 16, sizeMin: 8, sizeMax: 32, sizeStep: 8 },
-};
-
-function applyResolution(key) {
-  const r = RESOLUTIONS[key];
-  W = r.w; H = r.h;
-  canvas.width  = W;
-  canvas.height = H;
-  const dispW = W * r.scale + 'px';
-  const dispH = H * r.scale + 'px';
-  document.documentElement.style.setProperty('--canvas-w', dispW);
-  document.documentElement.style.setProperty('--canvas-h', dispH);
-  document.documentElement.style.setProperty('--canvas-ar', `${W} / ${H}`);
-  // Sync font size slider range and default
-  const sizeEl = document.getElementById('sizeRange');
-  sizeEl.min   = r.sizeMin;
-  sizeEl.max   = r.sizeMax;
-  sizeEl.step  = r.sizeStep;
-  sizeEl.value = r.defaultSize;
-  document.getElementById('sizeLabel').textContent = r.defaultSize + ' px';
-  scrollX  = W + 4;
-  scrollX2 = W + 4;
-  frame = 0;
-  // Update footer
-  document.querySelector('footer').textContent =
-    `${W} × ${H} LED PIXEL DISPLAY SIMULATOR · SCALE 1:${r.scale}`;
-  updateExportControls();
-}
-
-// ── Animation state ───────────────────────────────────────
-let frame = 0;
-let animId = null;
-
-const SPEEDS = [0.4, 0.7, 1.0, 1.5, 2.2]; // multipliers per step 1-5
-
-function getSpeed() {
-  const idx = parseInt(document.getElementById('speedRange').value) - 1;
-  return SPEEDS[idx];
-}
-
-// ── Colour interpolation ──────────────────────────────────
-function lerpColor(colors, t) {
-  const n = colors.length;
-  const scaled = ((t % 1 + 1) % 1) * n;
-  const i = Math.floor(scaled) % n;
-  const j = (i + 1) % n;
-  const f = scaled - Math.floor(scaled);
-  return [
-    Math.round(colors[i][0] * (1-f) + colors[j][0] * f),
-    Math.round(colors[i][1] * (1-f) + colors[j][1] * f),
-    Math.round(colors[i][2] * (1-f) + colors[j][2] * f),
-  ];
-}
-
-// ── Measure each character ────────────────────────────────
-function measureChars(text, fontStr) {
-  ctx.font = fontStr;
-  return [...text].map(ch => ctx.measureText(ch).width);
-}
-
-// ── Draw helpers ──────────────────────────────────────────
-function drawBackground() {
-  const [r, g, b] = BG_RGB;
-  ctx.fillStyle = `rgb(${r},${g},${b})`;
-  ctx.fillRect(0, 0, W, H);
-}
-
-// ── RTL detection ─────────────────────────────────────────
-function isRTL(text) {
-  return /[\u0600-\u06ff\u0750-\u077f\u0590-\u05ff\u07c0-\u07ff]/.test(text);
-}
-
-// ── Measure full string width ─────────────────────────────
-function measureText(text) {
-  return ctx.measureText(text).width;
-}
-
-// ── Build a rainbow gradient across the text width ────────
-function makeRainbowGradient(x, totalW, colors, phase) {
-  return makeRainbowGradientOn(ctx, x, totalW, colors, phase);
-}
-
-// ── Draw a single whole-string line (RTL-safe) ────────────
-function drawWholeLine(text, centerY, colors, phase, waveY) {
-  const fontStr = getFont();
-  ctx.font = fontStr;
-  ctx.textBaseline = 'middle';
-  ctx.direction = 'ltr';
-  const totalW = measureText(text);
-  const x = Math.max(1, (W - totalW) / 2);
-  setContextFill(ctx, x, totalW, colors, phase);
-  pxFillText(ctx, text, x, centerY + (waveY || 0));
-}
-// Returns array of center-Y values for each line
-function lineYs(n) {
-  if (n === 1) return [H / 2];
-  // Two lines: divide height into two equal bands
-  return [H * 0.28, H * 0.75];
-}
-
-// ── Per-line draw: rainbow wave ───────────────────────────
-function drawRainbowWaveLine(text, centerY, t, lineIdx, totalLines) {
-  const fontStr = getFont();
-  ctx.font = fontStr;
-  ctx.textBaseline = 'middle';
-  const colors = getActiveColors();
-  const waveAmp = totalLines === 1 ? 1.5 : 0.8;
-  const phase = (t + lineIdx * 0.5) % 1;
-
-  if (isRTL(text)) {
-    const waveY = Math.sin(t * Math.PI * 2 + lineIdx * Math.PI) * waveAmp;
-    drawWholeLine(text, centerY, colors, phase, waveY);
-    return;
-  }
-
-  const chars = [...text];
-  const widths = chars.map(ch => ctx.measureText(ch).width);
-  const totalW = widths.reduce((a, b) => a + b, 0);
-  const startX = Math.max(1, (W - totalW) / 2);
-
-  // Single gradient across full text width, phase-shifted over time
-  setContextFill(ctx, startX, totalW, colors, phase);
-
-  let x = startX;
-  chars.forEach((ch, i) => {
-    const wy = Math.sin(t * Math.PI * 2 + i * 0.9 + lineIdx * Math.PI) * waveAmp;
-    pxFillText(ctx, ch, x, centerY + wy);
-    x += widths[i];
-  });
-}
-
-// ── Per-line draw: scroll ─────────────────────────────────
-function drawScrollLine(text, centerY, scrollPos, lineIdx) {
-  const fontStr = getFont();
-  ctx.font = fontStr;
-  ctx.textBaseline = 'middle';
-  const colors = getActiveColors();
-  const phase = ((scrollPos / W) * 0.5 + 1 + lineIdx * 0.5) % 1;
-
-  const totalW = isRTL(text) ? measureText(text) : [...text].reduce((s, ch) => s + ctx.measureText(ch).width, 0);
-  const x = scrollPos - totalW / 2;
-
-  setContextFill(ctx, x, Math.max(totalW, 1), colors, phase);
-
-  if (isRTL(text)) {
-    pxFillText(ctx, text, x, centerY);
-    return;
-  }
-
-  const chars = [...text];
-  const widths = chars.map(ch => ctx.measureText(ch).width);
-  let cx = x;
-  chars.forEach(ch => {
-    pxFillText(ctx, ch, cx, centerY);
-    cx += ctx.measureText(ch).width;
-  });
-}
-
-// ── Per-line draw: pulse (彩虹流动) ───────────────────────
-function drawPulseLine(text, centerY, t, lineIdx) {
-  const fontStr = getFont();
-  ctx.font = fontStr;
-  ctx.textBaseline = 'middle';
-  const colors = getActiveColors();
-  const phase = (t * 0.5 + lineIdx * 0.5) % 1;
-  const totalW = isRTL(text) ? measureText(text) : [...text].reduce((s, ch) => s + ctx.measureText(ch).width, 0);
-  const x = Math.max(1, (W - totalW) / 2);
-
-  setContextFill(ctx, x, Math.max(totalW, 1), colors, phase);
-
-  if (isRTL(text)) {
-    pxFillText(ctx, text, x, centerY);
-    return;
-  }
-
-  const chars = [...text];
-  const widths = chars.map(ch => ctx.measureText(ch).width);
-  let cx = x;
-  chars.forEach(ch => {
-    pxFillText(ctx, ch, cx, centerY);
-    cx += ctx.measureText(ch).width;
-  });
-}
-
-// ── Per-line draw: typewriter ─────────────────────────────
-function getTypewriterState(tc, n) {
-  const typePart = 0.5, holdPart = 0.3, blinkPart = 0.2;
-  let charsShown, showCursor;
-  if (tc < typePart) {
-    charsShown = Math.floor((tc / typePart) * n);
-    showCursor = true;
-  } else if (tc < typePart + holdPart) {
-    charsShown = n;
-    showCursor = true;
-  } else {
-    charsShown = n;
-    showCursor = Math.floor(((tc - typePart - holdPart) / blinkPart) * 6) % 2 === 0;
-  }
-  return { charsShown: Math.min(charsShown, n), showCursor };
-}
-
-function drawTypewriterLineOn(targetCtx, text, centerY, t, lineIdx) {
-  const fontStr = getFont();
-  targetCtx.font = fontStr;
-  targetCtx.textBaseline = 'middle';
-  const colors = getActiveColors();
-  const chars = [...text];
-  const n = chars.length;
-  if (n === 0) return;
-
-  const tc = (t + lineIdx * 0.5) % 1.0;
-  const { charsShown, showCursor } = getTypewriterState(tc, n);
-
-  if (isRTL(text)) {
-    const totalW = targetCtx.measureText(text).width;
-    const x = Math.max(1, (W - totalW) / 2);
-    const revealW = totalW * Math.min(tc / 0.8, 1);
-    targetCtx.save();
-    targetCtx.beginPath();
-    targetCtx.rect(x, 0, revealW, H);
-    targetCtx.clip();
-    setContextFill(targetCtx, x, totalW, colors, tc);
-    pxFillText(targetCtx, text, x, centerY);
-    targetCtx.restore();
-    if (showCursor) {
-      const cx = Math.round(x + revealW + 1);
-      const fs = getFontSize();
-      const [r, g, b] = isSolidMode() ? getSolidRgb() : lerpColor(colors, tc);
-      targetCtx.fillStyle = isSolidMode() ? solidFillStyle() : `rgba(${r},${g},${b},0.9)`;
-      targetCtx.fillRect(cx, Math.round(centerY - fs * 0.45), 1, Math.round(fs * 0.9));
-    }
-    return;
-  }
-
-  const allWidths = chars.map(ch => targetCtx.measureText(ch).width);
-  const totalW = allWidths.reduce((a, b) => a + b, 0);
-  const x = Math.max(1, (W - totalW) / 2);
-  const shownW = allWidths.slice(0, charsShown).reduce((a, b) => a + b, 0);
-
-  if (charsShown > 0) {
-    targetCtx.save();
-    targetCtx.beginPath();
-    targetCtx.rect(x, 0, shownW, H);
-    targetCtx.clip();
-    setContextFill(targetCtx, x, Math.max(totalW, 1), colors, tc);
-    let cx = x;
-    chars.forEach(ch => {
-      pxFillText(targetCtx, ch, cx, centerY);
-      cx += targetCtx.measureText(ch).width;
-    });
-    targetCtx.restore();
-  }
-
-  if (showCursor) {
-    const curX = Math.round(x + shownW + 1);
-    const fs = getFontSize();
-    const [r, g, b] = isSolidMode() ? getSolidRgb() : lerpColor(colors, tc);
-    targetCtx.fillStyle = isSolidMode() ? solidFillStyle() : `rgba(${r},${g},${b},0.9)`;
-    targetCtx.fillRect(curX, Math.round(centerY - fs * 0.45), 1, Math.round(fs * 0.9));
-  }
-}
-
-function drawTypewriterLine(text, centerY, t, lineIdx) {
-  drawTypewriterLineOn(ctx, text, centerY, t, lineIdx);
-}
-
-// ── Per-line draw: static ─────────────────────────────────
-function drawCenteredLineOn(targetCtx, text, centerY, lineIdx, xOffset = 0) {
-  const fontStr = getFont();
-  targetCtx.font = fontStr;
-  targetCtx.textBaseline = 'middle';
-  const colors = getActiveColors();
-  const phase = (lineIdx * 0.5) % 1;
-  const totalW = isRTL(text)
-    ? targetCtx.measureText(text).width
-    : [...text].reduce((s, ch) => s + targetCtx.measureText(ch).width, 0);
-  const x = Math.max(1, (W - totalW) / 2 + xOffset);
-
-  setContextFill(targetCtx, x, Math.max(totalW, 1), colors, phase);
-
-  if (isRTL(text)) {
-    pxFillText(targetCtx, text, x, centerY);
-    return;
-  }
-
-  const chars = [...text];
-  let cx = x;
-  chars.forEach(ch => {
-    pxFillText(targetCtx, ch, cx, centerY);
-    cx += targetCtx.measureText(ch).width;
-  });
-}
-
-function drawStaticLineOn(targetCtx, text, centerY, lineIdx) {
-  drawCenteredLineOn(targetCtx, text, centerY, lineIdx, 0);
-}
-
-function drawStaticLine(text, centerY, lineIdx) {
-  drawStaticLineOn(ctx, text, centerY, lineIdx);
-}
-
-// ── Per-line draw: blink (闪烁) ───────────────────────────
-function drawBlinkLine(text, centerY, t, lineIdx) {
-  const tc = (t + lineIdx * 0.5) % 1.0;
-  const blinkPhase = (tc * 2) % 1;
-  if (blinkPhase >= 0.55) return;
-
-  drawCenteredLineOn(ctx, text, centerY, lineIdx, 0);
-}
-
-// ── Per-line draw: slide (滑入停留) ───────────────────────
-function getSlideOffset(tc, totalW) {
-  const slideIn = 0.22;
-  const holdEnd = 0.62;
-  const slideOutEnd = 0.84;
-  const travel = W / 2 + totalW / 2 + 4;
-
-  if (tc < slideIn) {
-    const p = tc / slideIn;
-    const ease = 1 - (1 - p) ** 2;
-    return (1 - ease) * travel;
-  }
-  if (tc < holdEnd) return 0;
-  if (tc < slideOutEnd) {
-    const p = (tc - holdEnd) / (slideOutEnd - holdEnd);
-    const ease = p ** 2;
-    return -ease * travel;
-  }
-  return -travel;
-}
-
-function drawSlideLine(text, centerY, t, lineIdx) {
-  const fontStr = getFont();
-  ctx.font = fontStr;
-  const totalW = isRTL(text)
-    ? measureText(text)
-    : [...text].reduce((s, ch) => s + ctx.measureText(ch).width, 0);
-  const tc = (t + lineIdx * 0.15) % 1.0;
-  const xOffset = getSlideOffset(tc, totalW);
-  drawCenteredLineOn(ctx, text, centerY, lineIdx, xOffset);
-}
-
-// ── Per-line draw: scan (扫描高亮) ────────────────────────
-function drawScanLine(text, centerY, t, lineIdx) {
-  const fontStr = getFont();
-  ctx.font = fontStr;
-  ctx.textBaseline = 'middle';
-  const colors = getActiveColors();
-  const phase = (t * 0.5 + lineIdx * 0.5) % 1;
-  const totalW = isRTL(text)
-    ? measureText(text)
-    : [...text].reduce((s, ch) => s + ctx.measureText(ch).width, 0);
-  const startX = Math.max(1, (W - totalW) / 2);
-  const bandW = Math.max(6, Math.min(20, totalW * 0.35));
-  const scanLeft = startX + (totalW + bandW) * ((t + lineIdx * 0.2) % 1) - bandW;
-
-  drawCenteredLineOn(ctx, text, centerY, lineIdx, 0);
-
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(scanLeft, 0, bandW, H);
-  ctx.clip();
-
-  if (isSolidMode()) {
-    const [sr, sg, sb] = getSolidRgb();
-    const [br, bg, bb] = BG_RGB;
-    ctx.fillStyle = `rgb(${sr},${sg},${sb})`;
-    ctx.fillRect(scanLeft, 0, bandW, H);
-    ctx.fillStyle = `rgb(${br},${bg},${bb})`;
-    ctx.font = fontStr;
-    ctx.textBaseline = 'middle';
-    if (isRTL(text)) {
-      pxFillText(ctx, text, startX, centerY);
-    } else {
-      const chars = [...text];
-      let cx = startX;
-      chars.forEach(ch => {
-        pxFillText(ctx, ch, cx, centerY);
-        cx += ctx.measureText(ch).width;
-      });
-    }
-  } else {
-    setContextFill(ctx, startX, Math.max(totalW, 1), colors, (phase + 0.5) % 1);
-    if (isRTL(text)) {
-      pxFillText(ctx, text, startX, centerY);
-    } else {
-      const chars = [...text];
-      let cx = startX;
-      chars.forEach(ch => {
-        pxFillText(ctx, ch, cx, centerY);
-        cx += ctx.measureText(ch).width;
-      });
-    }
-  }
-  ctx.restore();
-}
-
-// ── Per-line draw: wobble ─────────────────────────────────
-function drawWobbleLine(text, centerY, t, lineIdx, totalLines) {
-  const fontStr = getFont();
-  ctx.font = fontStr;
-  ctx.textBaseline = 'middle';
-  const colors = getActiveColors();
-  const maxAngle = 0.28; // radians (~16°)
-  const waveAmp  = totalLines === 1 ? 1.2 : 0.6;
-
-  if (isRTL(text)) {
-    const totalW = measureText(text);
-    const cx = W / 2;
-    const angle = Math.sin(t * Math.PI * 2 + lineIdx * Math.PI) * maxAngle;
-    const waveY = Math.sin(t * Math.PI * 2 + lineIdx * Math.PI) * waveAmp;
-    ctx.save();
-    ctx.translate(isSolidMode() ? Math.round(cx) : cx, isSolidMode() ? Math.round(centerY + waveY) : centerY + waveY);
-    ctx.rotate(angle);
-    setContextFill(ctx, -totalW / 2, totalW, colors, (t + lineIdx * 0.5) % 1);
-    pxFillText(ctx, text, -totalW / 2, 0);
-    ctx.restore();
-    return;
-  }
-
-  const chars = [...text];
-  const widths = chars.map(ch => ctx.measureText(ch).width);
-  const totalW = widths.reduce((a, b) => a + b, 0);
-  const startX = Math.max(1, (W - totalW) / 2);
-  const phase = (t + lineIdx * 0.5) % 1;
-
-  // Pre-build one gradient in screen space; apply it per-char via local coords
-  let x = startX;
-  chars.forEach((ch, i) => {
-    const angle = Math.sin(t * Math.PI * 2 + i * 0.7 + lineIdx * Math.PI) * maxAngle;
-    const waveY = Math.sin(t * Math.PI * 2 + i * 0.7 + lineIdx * Math.PI) * waveAmp;
-    const charCx = x + widths[i] / 2;
-
-    ctx.save();
-    ctx.translate(isSolidMode() ? Math.round(charCx) : charCx, isSolidMode() ? Math.round(centerY + waveY) : centerY + waveY);
-    ctx.rotate(angle);
-    if (isSolidMode()) {
-      ctx.fillStyle = solidFillStyle();
-    } else {
-      const localLeft  = startX - charCx;
-      const localRight = (startX + totalW) - charCx;
-      const grad = ctx.createLinearGradient(localLeft, 0, localRight, 0);
-      const n = colors.length;
-      for (let j = 0; j <= n; j++) {
-        const p = j / n;
-        const [r, g, b] = lerpColor(colors, (p + phase) % 1);
-        grad.addColorStop(p, `rgb(${r},${g},${b})`);
-      }
-      ctx.fillStyle = grad;
-    }
-    pxFillText(ctx, ch, -widths[i] / 2, 0);
-    ctx.restore();
-    x += widths[i];
-  });
-}
-const GLOW_COLORS = {
-  rainbow: 'rgba(200,255,0,0.06)',
-  fire:    'rgba(255,100,0,0.08)',
-  ice:     'rgba(100,200,255,0.07)',
-  gold:    'rgba(255,200,0,0.07)',
-  neon:    'rgba(0,255,160,0.07)',
-};
-function updateGlow() {
-  let c;
-  if (currentPreset === 'solid') {
-    const [r, g, b] = getSolidRgb();
-    c = `rgba(${r},${g},${b},0.08)`;
-  } else {
-    c = GLOW_COLORS[currentPreset] || GLOW_COLORS.rainbow;
-  }
-  document.getElementById('stageGlow').style.background =
-    `radial-gradient(ellipse 50% 35% at 50% 50%, ${c} 0%, transparent 70%)`;
-}
-
-// ── Scroll state per line ─────────────────────────────────
-let scrollX  = W;
-let scrollX2 = W; // synced with scrollX
-
-// ── Main render loop ──────────────────────────────────────
-function renderSingleFrame(t, speed) {
-  const text1  = document.getElementById('textInput').value  || ' ';
-  const text2  = document.getElementById('textInput2').value;
-  const effect = document.getElementById('effectSelect').value;
-
-  drawBackground();
-
-  const lines = text2.trim() ? [text1, text2] : [text1];
-  const ys    = lineYs(lines.length);
-
-  if (effect === 'scroll') {
-    const fontStr = getFont();
-    ctx.font = fontStr;
-    const scrollSpeed = speed * 0.6;
-
-    const w1 = isRTL(text1) ? measureText(text1) : [...text1].reduce((s, ch) => s + ctx.measureText(ch).width, 0);
-    const w2 = lines.length > 1
-      ? (isRTL(text2) ? measureText(text2) : [...text2].reduce((s, ch) => s + ctx.measureText(ch).width, 0))
-      : 0;
-
-    const maxHalfW = Math.max(w1, w2) / 2;
-    const startX = W + maxHalfW + 4;
-    const endX   = -(maxHalfW + 4);
-    scrollX -= scrollSpeed;
-    if (scrollX < endX) scrollX = startX;
-
-    drawScrollLine(text1, ys[0], scrollX, 0);
-    if (lines.length > 1) {
-      drawScrollLine(text2, ys[1], scrollX, 1);
-    }
-
-  } else if (effect === 'rainbow_wave') {
-    lines.forEach((txt, i) => drawRainbowWaveLine(txt, ys[i], t, i, lines.length));
-  } else if (effect === 'wobble') {
-    lines.forEach((txt, i) => drawWobbleLine(txt, ys[i], t, i, lines.length));
-  } else if (effect === 'pulse') {
-    lines.forEach((txt, i) => drawPulseLine(txt, ys[i], t, i));
-  } else if (effect === 'typewriter') {
-    lines.forEach((txt, i) => drawTypewriterLine(txt, ys[i], t, i));
-  } else if (effect === 'blink') {
-    lines.forEach((txt, i) => drawBlinkLine(txt, ys[i], t, i));
-  } else if (effect === 'slide') {
-    lines.forEach((txt, i) => drawSlideLine(txt, ys[i], t, i));
-  } else if (effect === 'scan') {
-    lines.forEach((txt, i) => drawScanLine(txt, ys[i], t, i));
-  } else if (effect === 'static') {
-    lines.forEach((txt, i) => drawStaticLine(txt, ys[i], i));
-  }
-
-  if (isSolidMode()) applySolidQuantize(ctx);
-}
-
-function render() {
-  frame++;
-  const speed = getSpeed();
-  const t = (frame * speed) / 120;
-  renderSingleFrame(t, speed);
-  animId = requestAnimationFrame(render);
-}
-
-// ── Font preloading ───────────────────────────────────────
-async function preloadFonts() {
-  await document.fonts.load(`normal 16px ${UNIFONT}`);
-  await document.fonts.load(`normal 8px ${UNIFONT}`);
-  await document.fonts.load(`normal 32px ${UNIFONT}`);
-  const notoFamilies = ['Noto Sans SC', 'Noto Sans JP', 'Noto Sans KR', 'Noto Sans', 'Noto Sans Arabic'];
-  for (const f of notoFamilies) {
-    try {
-      await document.fonts.load(`normal 16px '${f}'`);
-      await document.fonts.load(`normal 8px '${f}'`);
-      await document.fonts.load(`normal 32px '${f}'`);
-    } catch (e) {}
-  }
-  await document.fonts.ready;
-}
-
-// ── Event listeners ───────────────────────────────────────
-document.getElementById('resSelect').addEventListener('change', function() {
-  applyResolution(this.value);
-});
-
-document.getElementById('textInput').addEventListener('input', () => {
-  scrollX = W + 4;
-});
-
-document.getElementById('textInput2').addEventListener('input', () => {
-  scrollX2 = W + 4;
-});
-
-document.getElementById('speedRange').addEventListener('input', function() {
-  const labels = ['×0.4','×0.7','×1.0','×1.5','×2.2'];
-  document.getElementById('speedLabel').textContent = labels[this.value - 1];
-});
-
-document.getElementById('sizeRange').addEventListener('input', function() {
-  document.getElementById('sizeLabel').textContent = this.value + ' px';
-  scrollX  = W + 4;
-  scrollX2 = W + 4;
-});
-
-document.getElementById('effectSelect').addEventListener('change', () => {
-  scrollX  = W + 4;
-  scrollX2 = W + 4;
-  frame = 0;
-  updateExportControls();
-});
-
-document.getElementById('presetRow').addEventListener('click', (e) => {
-  const btn = e.target.closest('.preset-btn');
-  if (!btn) return;
-  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  currentPreset = btn.dataset.preset;
-  updateSolidDisplayMode();
-  updateGlow();
-});
-
-document.getElementById('solidColorInput').addEventListener('input', function() {
-  solidColor = this.value;
-  updateSolidColorHex();
-  if (currentPreset === 'solid') updateGlow();
-});
-
-document.getElementById('toleranceRange').addEventListener('input', function() {
-  document.getElementById('toleranceLabel').textContent = this.value;
-});
-
-// ── GIF Export (gif.js) ───────────────────────────────────
-let gifWorkerScriptUrl = null;
-
-function getGifWorkerScriptUrl() {
-  if (gifWorkerScriptUrl) return gifWorkerScriptUrl;
-
-  // file:// 无法加载 CDN / 跨域 Worker；用内嵌源码生成 Blob URL（同源）
-  const inline = document.getElementById('gif-worker-src');
-  if (inline && inline.textContent.trim()) {
-    gifWorkerScriptUrl = URL.createObjectURL(
-      new Blob([inline.textContent], { type: 'application/javascript' })
+// ═══════════════════════════════════════════════════════
+// THREE.JS SETUP
+// ═══════════════════════════════════════════════════════
+const wrap = document.getElementById('canvas-wrap');
+
+const scene    = new THREE.Scene();
+const camera   = new THREE.PerspectiveCamera(45, wrap.clientWidth / wrap.clientHeight, 1, 8000);
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // cap for performance on retina
+renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+wrap.appendChild(renderer.domElement);
+
+// Camera
+let spherical = { theta: 0, phi: Math.PI * 0.38, r: 900 };
+const target  = new THREE.Vector3(0, 280, 0);
+
+function updateCamera() {
+    camera.position.set(
+        target.x + spherical.r * Math.sin(spherical.phi) * Math.sin(spherical.theta),
+        target.y + spherical.r * Math.cos(spherical.phi),
+        target.z + spherical.r * Math.sin(spherical.phi) * Math.cos(spherical.theta)
     );
-    return gifWorkerScriptUrl;
-  }
-
-  // 备用：同目录 gif.worker.js（需与 HTML 放在同一文件夹）
-  return 'gif.worker.js';
+    camera.lookAt(target);
 }
+updateCamera();
 
-function getGifExportFps() {
-  return parseInt(document.getElementById('gifFpsSelect').value, 10) || 30;
-}
+// ── Touch controls ────────────────────────────────────
+let prevTouch1 = null, prevTouch2 = null;
 
-function getGifExportPlan() {
-  const effect = document.getElementById('effectSelect').value;
-  const speed = getSpeed();
-  const fps = getGifExportFps();
-  const cycleFrames = Math.round(120 / speed);
-  const frameDelay = Math.round(1000 / fps);
-
-  if (effect === 'static') {
-    return { totalFrames: 1, frameDelay: 500 };
-  }
-
-  return { totalFrames: cycleFrames, frameDelay };
-}
-
-function exportGIF() {
-  const btn    = document.getElementById('exportBtn');
-  const status = document.getElementById('exportStatus');
-
-  if (typeof GIF === 'undefined') {
-    status.className = 'export-status err';
-    status.textContent = 'GIF 库未加载（需联网加载 gif.js）';
-    return;
-  }
-
-  btn.disabled = true;
-  status.className = 'export-status';
-  status.textContent = '正在渲染帧…';
-
-  const speed = getSpeed();
-  const fps = getGifExportFps();
-  const { totalFrames, frameDelay } = getGifExportPlan();
-
-  const savedFrame   = frame;
-  const savedScrollX = scrollX;
-  cancelAnimationFrame(animId);
-
-  const text1 = document.getElementById('textInput').value || ' ';
-
-  scrollX = W + 4;
-  scrollX2 = W + 4;
-
-  let gif;
-  try {
-    gif = new GIF({
-      workers: 2,
-      quality: isSolidMode() ? 20 : 10,
-      globalPalette: true,
-      repeat: 0,
-      width: W,
-      height: H,
-      workerScript: getGifWorkerScriptUrl(),
-    });
-  } catch (err) {
-    status.className = 'export-status err';
-    status.textContent = 'GIF worker 初始化失败';
-    btn.disabled = false;
-    frame = savedFrame;
-    scrollX = savedScrollX;
-    render();
-    return;
-  }
-
-  for (let f = 0; f < totalFrames; f++) {
-    const t = (f * speed) / 120;
-    renderSingleFrame(t, speed);
-    gif.addFrame(canvas, { copy: true, delay: frameDelay });
-    if (f % 5 === 0) status.textContent = `渲染帧 ${f + 1}/${totalFrames}…`;
-  }
-
-  status.textContent = '编码中…';
-
-  gif.on('progress', (p) => {
-    status.textContent = `编码中… ${Math.round(p * 100)}%`;
-  });
-
-  gif.on('finished', (blob) => {
-    frame = savedFrame;
-    scrollX = savedScrollX;
-    render();
-
-    const kb = (blob.size / 1024).toFixed(1);
-    status.className = 'export-status ok';
-    status.textContent = `完成！${kb} KB · ${fps} fps · ${totalFrames} 帧`;
-    btn.disabled = false;
-
-    const label = text1.slice(0, 10).replace(/\s+/g, '_');
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `led_${W}x${H}_${label}.gif`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  });
-
-  gif.on('abort', () => {
-    frame = savedFrame;
-    scrollX = savedScrollX;
-    render();
-    status.className = 'export-status err';
-    status.textContent = '导出失败，请重试';
-    btn.disabled = false;
-  });
-
-  gif.render();
-}
-
-document.getElementById('exportBtn').addEventListener('click', exportGIF);
-
-function exportStaticPNG() {
-  if (!canExportStaticPNG()) return;
-
-  const btn = document.getElementById('exportPngBtn');
-  const status = document.getElementById('exportStatus');
-  btn.disabled = true;
-  status.className = 'export-status';
-  status.textContent = '正在导出 PNG…';
-
-  const oc = document.createElement('canvas');
-  oc.width = W;
-  oc.height = H;
-  const octx = oc.getContext('2d');
-  octx.imageSmoothingEnabled = false;
-
-  const [br, bg, bb] = BG_RGB;
-  octx.fillStyle = `rgb(${br},${bg},${bb})`;
-  octx.fillRect(0, 0, W, H);
-
-  const text1 = document.getElementById('textInput').value || ' ';
-  const text2 = document.getElementById('textInput2').value;
-  const lines = text2.trim() ? [text1, text2] : [text1];
-  const ys = lineYs(lines.length);
-
-  lines.forEach((txt, i) => drawStaticLineOn(octx, txt, ys[i], i));
-  if (isSolidMode()) applySolidQuantize(octx);
-
-  oc.toBlob((blob) => {
-    if (!blob) {
-      status.className = 'export-status err';
-      status.textContent = '导出失败，请重试';
-      updateExportControls();
-      return;
+renderer.domElement.addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (e.touches.length === 1) {
+        prevTouch1 = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+        prevTouch2 = null;
+    } else if (e.touches.length === 2) {
+        prevTouch1 = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+        prevTouch2 = {x: e.touches[1].clientX, y: e.touches[1].clientY};
     }
-    const label = text1.slice(0, 10).replace(/\s+/g, '_');
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `led_${W}x${H}_${label}.png`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-    status.className = 'export-status ok';
-    status.textContent = `PNG 已导出 · ${W}×${H}`;
-    updateExportControls();
-  }, 'image/png');
+}, { passive: false });
+
+renderer.domElement.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (autoPlaying) return;
+
+    if (e.touches.length === 1 && prevTouch1) {
+        // Single finger: rotate
+        let dx = e.touches[0].clientX - prevTouch1.x;
+        let dy = e.touches[0].clientY - prevTouch1.y;
+        spherical.theta -= dx * 0.006;
+        spherical.phi = Math.max(0.05, Math.min(Math.PI * 0.48, spherical.phi + dy * 0.006));
+        prevTouch1 = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+        updateCamera();
+        renderOnce();
+
+    } else if (e.touches.length === 2 && prevTouch1 && prevTouch2) {
+        // Two fingers: pinch zoom
+        let cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        let cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        let prevCx = (prevTouch1.x + prevTouch2.x) / 2;
+        let prevCy = (prevTouch1.y + prevTouch2.y) / 2;
+
+        let prevDist = Math.hypot(prevTouch1.x - prevTouch2.x, prevTouch1.y - prevTouch2.y);
+        let curDist  = Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
+                                   e.touches[0].clientY - e.touches[1].clientY);
+        let scale = prevDist / curDist;
+        spherical.r = Math.max(200, Math.min(2500, spherical.r * scale));
+
+        // Also allow rotation with two fingers
+        let dx = cx - prevCx, dy = cy - prevCy;
+        spherical.theta -= dx * 0.004;
+        spherical.phi = Math.max(0.05, Math.min(Math.PI * 0.48, spherical.phi + dy * 0.004));
+
+        prevTouch1 = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+        prevTouch2 = {x: e.touches[1].clientX, y: e.touches[1].clientY};
+        updateCamera();
+        renderOnce();
+    }
+}, { passive: false });
+
+renderer.domElement.addEventListener('touchend', e => {
+    if (e.touches.length === 0) { prevTouch1 = null; prevTouch2 = null; }
+    else if (e.touches.length === 1) {
+        prevTouch1 = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+        prevTouch2 = null;
+    }
+}, { passive: false });
+
+// Mouse support (for testing on desktop)
+let isDragging = false, prevMouse = {x:0,y:0};
+renderer.domElement.addEventListener('mousedown', e => { isDragging=true; prevMouse={x:e.clientX,y:e.clientY}; });
+window.addEventListener('mouseup', () => { isDragging=false; });
+window.addEventListener('mousemove', e => {
+    if (!isDragging || autoPlaying) return;
+    spherical.theta -= (e.clientX-prevMouse.x)*0.005;
+    spherical.phi = Math.max(0.05, Math.min(Math.PI*0.48, spherical.phi+(e.clientY-prevMouse.y)*0.005));
+    prevMouse = {x:e.clientX,y:e.clientY};
+    updateCamera(); renderOnce();
+});
+renderer.domElement.addEventListener('wheel', e => {
+    spherical.r = Math.max(200, Math.min(2500, spherical.r+e.deltaY*0.5));
+    updateCamera(); renderOnce(); e.preventDefault();
+}, { passive: false });
+
+// ── Resize ────────────────────────────────────────────
+function onResize() {
+    // Use setTimeout to let iOS finish updating layout dimensions after rotation
+    setTimeout(() => {
+        const w = wrap.clientWidth, h = wrap.clientHeight;
+        renderer.setSize(w, h);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderOnce();
+    }, 100);
 }
 
-document.getElementById('exportPngBtn').addEventListener('click', exportStaticPNG);
+window.addEventListener('resize', onResize);
+window.addEventListener('orientationchange', onResize);
 
-// ── Boot ──────────────────────────────────────────────────
-preloadFonts().then(() => {
-  applyResolution('96x16');
-  updateSolidColorHex();
-  updateSolidDisplayMode();
-  updateExportControls();
-  render();
-});
-</script>
-<script type="text/plain" id="gif-worker-src">
-// gif.worker.js 0.2.0 - https://github.com/jnordberg/gif.js
-(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){var NeuQuant=require("./TypedNeuQuant.js");var LZWEncoder=require("./LZWEncoder.js");function ByteArray(){this.page=-1;this.pages=[];this.newPage()}ByteArray.pageSize=4096;ByteArray.charMap={};for(var i=0;i<256;i++)ByteArray.charMap[i]=String.fromCharCode(i);ByteArray.prototype.newPage=function(){this.pages[++this.page]=new Uint8Array(ByteArray.pageSize);this.cursor=0};ByteArray.prototype.getData=function(){var rv="";for(var p=0;p<this.pages.length;p++){for(var i=0;i<ByteArray.pageSize;i++){rv+=ByteArray.charMap[this.pages[p][i]]}}return rv};ByteArray.prototype.writeByte=function(val){if(this.cursor>=ByteArray.pageSize)this.newPage();this.pages[this.page][this.cursor++]=val};ByteArray.prototype.writeUTFBytes=function(string){for(var l=string.length,i=0;i<l;i++)this.writeByte(string.charCodeAt(i))};ByteArray.prototype.writeBytes=function(array,offset,length){for(var l=length||array.length,i=offset||0;i<l;i++)this.writeByte(array[i])};function GIFEncoder(width,height){this.width=~~width;this.height=~~height;this.transparent=null;this.transIndex=0;this.repeat=-1;this.delay=0;this.image=null;this.pixels=null;this.indexedPixels=null;this.colorDepth=null;this.colorTab=null;this.neuQuant=null;this.usedEntry=new Array;this.palSize=7;this.dispose=-1;this.firstFrame=true;this.sample=10;this.dither=false;this.globalPalette=false;this.out=new ByteArray}GIFEncoder.prototype.setDelay=function(milliseconds){this.delay=Math.round(milliseconds/10)};GIFEncoder.prototype.setFrameRate=function(fps){this.delay=Math.round(100/fps)};GIFEncoder.prototype.setDispose=function(disposalCode){if(disposalCode>=0)this.dispose=disposalCode};GIFEncoder.prototype.setRepeat=function(repeat){this.repeat=repeat};GIFEncoder.prototype.setTransparent=function(color){this.transparent=color};GIFEncoder.prototype.addFrame=function(imageData){this.image=imageData;this.colorTab=this.globalPalette&&this.globalPalette.slice?this.globalPalette:null;this.getImagePixels();this.analyzePixels();if(this.globalPalette===true)this.globalPalette=this.colorTab;if(this.firstFrame){this.writeLSD();this.writePalette();if(this.repeat>=0){this.writeNetscapeExt()}}this.writeGraphicCtrlExt();this.writeImageDesc();if(!this.firstFrame&&!this.globalPalette)this.writePalette();this.writePixels();this.firstFrame=false};GIFEncoder.prototype.finish=function(){this.out.writeByte(59)};GIFEncoder.prototype.setQuality=function(quality){if(quality<1)quality=1;this.sample=quality};GIFEncoder.prototype.setDither=function(dither){if(dither===true)dither="FloydSteinberg";this.dither=dither};GIFEncoder.prototype.setGlobalPalette=function(palette){this.globalPalette=palette};GIFEncoder.prototype.getGlobalPalette=function(){return this.globalPalette&&this.globalPalette.slice&&this.globalPalette.slice(0)||this.globalPalette};GIFEncoder.prototype.writeHeader=function(){this.out.writeUTFBytes("GIF89a")};GIFEncoder.prototype.analyzePixels=function(){if(!this.colorTab){this.neuQuant=new NeuQuant(this.pixels,this.sample);this.neuQuant.buildColormap();this.colorTab=this.neuQuant.getColormap()}if(this.dither){this.ditherPixels(this.dither.replace("-serpentine",""),this.dither.match(/-serpentine/)!==null)}else{this.indexPixels()}this.pixels=null;this.colorDepth=8;this.palSize=7;if(this.transparent!==null){this.transIndex=this.findClosest(this.transparent,true)}};GIFEncoder.prototype.indexPixels=function(imgq){var nPix=this.pixels.length/3;this.indexedPixels=new Uint8Array(nPix);var k=0;for(var j=0;j<nPix;j++){var index=this.findClosestRGB(this.pixels[k++]&255,this.pixels[k++]&255,this.pixels[k++]&255);this.usedEntry[index]=true;this.indexedPixels[j]=index}};GIFEncoder.prototype.ditherPixels=function(kernel,serpentine){var kernels={FalseFloydSteinberg:[[3/8,1,0],[3/8,0,1],[2/8,1,1]],FloydSteinberg:[[7/16,1,0],[3/16,-1,1],[5/16,0,1],[1/16,1,1]],Stucki:[[8/42,1,0],[4/42,2,0],[2/42,-2,1],[4/42,-1,1],[8/42,0,1],[4/42,1,1],[2/42,2,1],[1/42,-2,2],[2/42,-1,2],[4/42,0,2],[2/42,1,2],[1/42,2,2]],Atkinson:[[1/8,1,0],[1/8,2,0],[1/8,-1,1],[1/8,0,1],[1/8,1,1],[1/8,0,2]]};if(!kernel||!kernels[kernel]){throw"Unknown dithering kernel: "+kernel}var ds=kernels[kernel];var index=0,height=this.height,width=this.width,data=this.pixels;var direction=serpentine?-1:1;this.indexedPixels=new Uint8Array(this.pixels.length/3);for(var y=0;y<height;y++){if(serpentine)direction=direction*-1;for(var x=direction==1?0:width-1,xend=direction==1?width:0;x!==xend;x+=direction){index=y*width+x;var idx=index*3;var r1=data[idx];var g1=data[idx+1];var b1=data[idx+2];idx=this.findClosestRGB(r1,g1,b1);this.usedEntry[idx]=true;this.indexedPixels[index]=idx;idx*=3;var r2=this.colorTab[idx];var g2=this.colorTab[idx+1];var b2=this.colorTab[idx+2];var er=r1-r2;var eg=g1-g2;var eb=b1-b2;for(var i=direction==1?0:ds.length-1,end=direction==1?ds.length:0;i!==end;i+=direction){var x1=ds[i][1];var y1=ds[i][2];if(x1+x>=0&&x1+x<width&&y1+y>=0&&y1+y<height){var d=ds[i][0];idx=index+x1+y1*width;idx*=3;data[idx]=Math.max(0,Math.min(255,data[idx]+er*d));data[idx+1]=Math.max(0,Math.min(255,data[idx+1]+eg*d));data[idx+2]=Math.max(0,Math.min(255,data[idx+2]+eb*d))}}}}};GIFEncoder.prototype.findClosest=function(c,used){return this.findClosestRGB((c&16711680)>>16,(c&65280)>>8,c&255,used)};GIFEncoder.prototype.findClosestRGB=function(r,g,b,used){if(this.colorTab===null)return-1;if(this.neuQuant&&!used){return this.neuQuant.lookupRGB(r,g,b)}var c=b|g<<8|r<<16;var minpos=0;var dmin=256*256*256;var len=this.colorTab.length;for(var i=0,index=0;i<len;index++){var dr=r-(this.colorTab[i++]&255);var dg=g-(this.colorTab[i++]&255);var db=b-(this.colorTab[i++]&255);var d=dr*dr+dg*dg+db*db;if((!used||this.usedEntry[index])&&d<dmin){dmin=d;minpos=index}}return minpos};GIFEncoder.prototype.getImagePixels=function(){var w=this.width;var h=this.height;this.pixels=new Uint8Array(w*h*3);var data=this.image;var srcPos=0;var count=0;for(var i=0;i<h;i++){for(var j=0;j<w;j++){this.pixels[count++]=data[srcPos++];this.pixels[count++]=data[srcPos++];this.pixels[count++]=data[srcPos++];srcPos++}}};GIFEncoder.prototype.writeGraphicCtrlExt=function(){this.out.writeByte(33);this.out.writeByte(249);this.out.writeByte(4);var transp,disp;if(this.transparent===null){transp=0;disp=0}else{transp=1;disp=2}if(this.dispose>=0){disp=dispose&7}disp<<=2;this.out.writeByte(0|disp|0|transp);this.writeShort(this.delay);this.out.writeByte(this.transIndex);this.out.writeByte(0)};GIFEncoder.prototype.writeImageDesc=function(){this.out.writeByte(44);this.writeShort(0);this.writeShort(0);this.writeShort(this.width);this.writeShort(this.height);if(this.firstFrame||this.globalPalette){this.out.writeByte(0)}else{this.out.writeByte(128|0|0|0|this.palSize)}};GIFEncoder.prototype.writeLSD=function(){this.writeShort(this.width);this.writeShort(this.height);this.out.writeByte(128|112|0|this.palSize);this.out.writeByte(0);this.out.writeByte(0)};GIFEncoder.prototype.writeNetscapeExt=function(){this.out.writeByte(33);this.out.writeByte(255);this.out.writeByte(11);this.out.writeUTFBytes("NETSCAPE2.0");this.out.writeByte(3);this.out.writeByte(1);this.writeShort(this.repeat);this.out.writeByte(0)};GIFEncoder.prototype.writePalette=function(){this.out.writeBytes(this.colorTab);var n=3*256-this.colorTab.length;for(var i=0;i<n;i++)this.out.writeByte(0)};GIFEncoder.prototype.writeShort=function(pValue){this.out.writeByte(pValue&255);this.out.writeByte(pValue>>8&255)};GIFEncoder.prototype.writePixels=function(){var enc=new LZWEncoder(this.width,this.height,this.indexedPixels,this.colorDepth);enc.encode(this.out)};GIFEncoder.prototype.stream=function(){return this.out};module.exports=GIFEncoder},{"./LZWEncoder.js":2,"./TypedNeuQuant.js":3}],2:[function(require,module,exports){var EOF=-1;var BITS=12;var HSIZE=5003;var masks=[0,1,3,7,15,31,63,127,255,511,1023,2047,4095,8191,16383,32767,65535];function LZWEncoder(width,height,pixels,colorDepth){var initCodeSize=Math.max(2,colorDepth);var accum=new Uint8Array(256);var htab=new Int32Array(HSIZE);var codetab=new Int32Array(HSIZE);var cur_accum,cur_bits=0;var a_count;var free_ent=0;var maxcode;var clear_flg=false;var g_init_bits,ClearCode,EOFCode;function char_out(c,outs){accum[a_count++]=c;if(a_count>=254)flush_char(outs)}function cl_block(outs){cl_hash(HSIZE);free_ent=ClearCode+2;clear_flg=true;output(ClearCode,outs)}function cl_hash(hsize){for(var i=0;i<hsize;++i)htab[i]=-1}function compress(init_bits,outs){var fcode,c,i,ent,disp,hsize_reg,hshift;g_init_bits=init_bits;clear_flg=false;n_bits=g_init_bits;maxcode=MAXCODE(n_bits);ClearCode=1<<init_bits-1;EOFCode=ClearCode+1;free_ent=ClearCode+2;a_count=0;ent=nextPixel();hshift=0;for(fcode=HSIZE;fcode<65536;fcode*=2)++hshift;hshift=8-hshift;hsize_reg=HSIZE;cl_hash(hsize_reg);output(ClearCode,outs);outer_loop:while((c=nextPixel())!=EOF){fcode=(c<<BITS)+ent;i=c<<hshift^ent;if(htab[i]===fcode){ent=codetab[i];continue}else if(htab[i]>=0){disp=hsize_reg-i;if(i===0)disp=1;do{if((i-=disp)<0)i+=hsize_reg;if(htab[i]===fcode){ent=codetab[i];continue outer_loop}}while(htab[i]>=0)}output(ent,outs);ent=c;if(free_ent<1<<BITS){codetab[i]=free_ent++;htab[i]=fcode}else{cl_block(outs)}}output(ent,outs);output(EOFCode,outs)}function encode(outs){outs.writeByte(initCodeSize);remaining=width*height;curPixel=0;compress(initCodeSize+1,outs);outs.writeByte(0)}function flush_char(outs){if(a_count>0){outs.writeByte(a_count);outs.writeBytes(accum,0,a_count);a_count=0}}function MAXCODE(n_bits){return(1<<n_bits)-1}function nextPixel(){if(remaining===0)return EOF;--remaining;var pix=pixels[curPixel++];return pix&255}function output(code,outs){cur_accum&=masks[cur_bits];if(cur_bits>0)cur_accum|=code<<cur_bits;else cur_accum=code;cur_bits+=n_bits;while(cur_bits>=8){char_out(cur_accum&255,outs);cur_accum>>=8;cur_bits-=8}if(free_ent>maxcode||clear_flg){if(clear_flg){maxcode=MAXCODE(n_bits=g_init_bits);clear_flg=false}else{++n_bits;if(n_bits==BITS)maxcode=1<<BITS;else maxcode=MAXCODE(n_bits)}}if(code==EOFCode){while(cur_bits>0){char_out(cur_accum&255,outs);cur_accum>>=8;cur_bits-=8}flush_char(outs)}}this.encode=encode}module.exports=LZWEncoder},{}],3:[function(require,module,exports){var ncycles=100;var netsize=256;var maxnetpos=netsize-1;var netbiasshift=4;var intbiasshift=16;var intbias=1<<intbiasshift;var gammashift=10;var gamma=1<<gammashift;var betashift=10;var beta=intbias>>betashift;var betagamma=intbias<<gammashift-betashift;var initrad=netsize>>3;var radiusbiasshift=6;var radiusbias=1<<radiusbiasshift;var initradius=initrad*radiusbias;var radiusdec=30;var alphabiasshift=10;var initalpha=1<<alphabiasshift;var alphadec;var radbiasshift=8;var radbias=1<<radbiasshift;var alpharadbshift=alphabiasshift+radbiasshift;var alpharadbias=1<<alpharadbshift;var prime1=499;var prime2=491;var prime3=487;var prime4=503;var minpicturebytes=3*prime4;function NeuQuant(pixels,samplefac){var network;var netindex;var bias;var freq;var radpower;function init(){network=[];netindex=new Int32Array(256);bias=new Int32Array(netsize);freq=new Int32Array(netsize);radpower=new Int32Array(netsize>>3);var i,v;for(i=0;i<netsize;i++){v=(i<<netbiasshift+8)/netsize;network[i]=new Float64Array([v,v,v,0]);freq[i]=intbias/netsize;bias[i]=0}}function unbiasnet(){for(var i=0;i<netsize;i++){network[i][0]>>=netbiasshift;network[i][1]>>=netbiasshift;network[i][2]>>=netbiasshift;network[i][3]=i}}function altersingle(alpha,i,b,g,r){network[i][0]-=alpha*(network[i][0]-b)/initalpha;network[i][1]-=alpha*(network[i][1]-g)/initalpha;network[i][2]-=alpha*(network[i][2]-r)/initalpha}function alterneigh(radius,i,b,g,r){var lo=Math.abs(i-radius);var hi=Math.min(i+radius,netsize);var j=i+1;var k=i-1;var m=1;var p,a;while(j<hi||k>lo){a=radpower[m++];if(j<hi){p=network[j++];p[0]-=a*(p[0]-b)/alpharadbias;p[1]-=a*(p[1]-g)/alpharadbias;p[2]-=a*(p[2]-r)/alpharadbias}if(k>lo){p=network[k--];p[0]-=a*(p[0]-b)/alpharadbias;p[1]-=a*(p[1]-g)/alpharadbias;p[2]-=a*(p[2]-r)/alpharadbias}}}function contest(b,g,r){var bestd=~(1<<31);var bestbiasd=bestd;var bestpos=-1;var bestbiaspos=bestpos;var i,n,dist,biasdist,betafreq;for(i=0;i<netsize;i++){n=network[i];dist=Math.abs(n[0]-b)+Math.abs(n[1]-g)+Math.abs(n[2]-r);if(dist<bestd){bestd=dist;bestpos=i}biasdist=dist-(bias[i]>>intbiasshift-netbiasshift);if(biasdist<bestbiasd){bestbiasd=biasdist;bestbiaspos=i}betafreq=freq[i]>>betashift;freq[i]-=betafreq;bias[i]+=betafreq<<gammashift}freq[bestpos]+=beta;bias[bestpos]-=betagamma;return bestbiaspos}function inxbuild(){var i,j,p,q,smallpos,smallval,previouscol=0,startpos=0;for(i=0;i<netsize;i++){p=network[i];smallpos=i;smallval=p[1];for(j=i+1;j<netsize;j++){q=network[j];if(q[1]<smallval){smallpos=j;smallval=q[1]}}q=network[smallpos];if(i!=smallpos){j=q[0];q[0]=p[0];p[0]=j;j=q[1];q[1]=p[1];p[1]=j;j=q[2];q[2]=p[2];p[2]=j;j=q[3];q[3]=p[3];p[3]=j}if(smallval!=previouscol){netindex[previouscol]=startpos+i>>1;for(j=previouscol+1;j<smallval;j++)netindex[j]=i;previouscol=smallval;startpos=i}}netindex[previouscol]=startpos+maxnetpos>>1;for(j=previouscol+1;j<256;j++)netindex[j]=maxnetpos}function inxsearch(b,g,r){var a,p,dist;var bestd=1e3;var best=-1;var i=netindex[g];var j=i-1;while(i<netsize||j>=0){if(i<netsize){p=network[i];dist=p[1]-g;if(dist>=bestd)i=netsize;else{i++;if(dist<0)dist=-dist;a=p[0]-b;if(a<0)a=-a;dist+=a;if(dist<bestd){a=p[2]-r;if(a<0)a=-a;dist+=a;if(dist<bestd){bestd=dist;best=p[3]}}}}if(j>=0){p=network[j];dist=g-p[1];if(dist>=bestd)j=-1;else{j--;if(dist<0)dist=-dist;a=p[0]-b;if(a<0)a=-a;dist+=a;if(dist<bestd){a=p[2]-r;if(a<0)a=-a;dist+=a;if(dist<bestd){bestd=dist;best=p[3]}}}}}return best}function learn(){var i;var lengthcount=pixels.length;var alphadec=30+(samplefac-1)/3;var samplepixels=lengthcount/(3*samplefac);var delta=~~(samplepixels/ncycles);var alpha=initalpha;var radius=initradius;var rad=radius>>radiusbiasshift;if(rad<=1)rad=0;for(i=0;i<rad;i++)radpower[i]=alpha*((rad*rad-i*i)*radbias/(rad*rad));var step;if(lengthcount<minpicturebytes){samplefac=1;step=3}else if(lengthcount%prime1!==0){step=3*prime1}else if(lengthcount%prime2!==0){step=3*prime2}else if(lengthcount%prime3!==0){step=3*prime3}else{step=3*prime4}var b,g,r,j;var pix=0;i=0;while(i<samplepixels){b=(pixels[pix]&255)<<netbiasshift;g=(pixels[pix+1]&255)<<netbiasshift;r=(pixels[pix+2]&255)<<netbiasshift;j=contest(b,g,r);altersingle(alpha,j,b,g,r);if(rad!==0)alterneigh(rad,j,b,g,r);pix+=step;if(pix>=lengthcount)pix-=lengthcount;i++;if(delta===0)delta=1;if(i%delta===0){alpha-=alpha/alphadec;radius-=radius/radiusdec;rad=radius>>radiusbiasshift;if(rad<=1)rad=0;for(j=0;j<rad;j++)radpower[j]=alpha*((rad*rad-j*j)*radbias/(rad*rad))}}}function buildColormap(){init();learn();unbiasnet();inxbuild()}this.buildColormap=buildColormap;function getColormap(){var map=[];var index=[];for(var i=0;i<netsize;i++)index[network[i][3]]=i;var k=0;for(var l=0;l<netsize;l++){var j=index[l];map[k++]=network[j][0];map[k++]=network[j][1];map[k++]=network[j][2]}return map}this.getColormap=getColormap;this.lookupRGB=inxsearch}module.exports=NeuQuant},{}],4:[function(require,module,exports){var GIFEncoder,renderFrame;GIFEncoder=require("./GIFEncoder.js");renderFrame=function(frame){var encoder,page,stream,transfer;encoder=new GIFEncoder(frame.width,frame.height);if(frame.index===0){encoder.writeHeader()}else{encoder.firstFrame=false}encoder.setTransparent(frame.transparent);encoder.setRepeat(frame.repeat);encoder.setDelay(frame.delay);encoder.setQuality(frame.quality);encoder.setDither(frame.dither);encoder.setGlobalPalette(frame.globalPalette);encoder.addFrame(frame.data);if(frame.last){encoder.finish()}if(frame.globalPalette===true){frame.globalPalette=encoder.getGlobalPalette()}stream=encoder.stream();frame.data=stream.pages;frame.cursor=stream.cursor;frame.pageSize=stream.constructor.pageSize;if(frame.canTransfer){transfer=function(){var i,len,ref,results;ref=frame.data;results=[];for(i=0,len=ref.length;i<len;i++){page=ref[i];results.push(page.buffer)}return results}();return self.postMessage(frame,transfer)}else{return self.postMessage(frame)}};self.onmessage=function(event){return renderFrame(event.data)}},{"./GIFEncoder.js":1}]},{},[4]);
+// ── Lighting ──────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0xfff5e0, 0.6));
+const sunLight = new THREE.DirectionalLight(0xfffbe8, 1.0);
+sunLight.position.set(300, 800, 400);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.width = sunLight.shadow.mapSize.height = 1024; // smaller on mobile
+sunLight.shadow.camera.near=10; sunLight.shadow.camera.far=3000;
+sunLight.shadow.camera.left=sunLight.shadow.camera.bottom=-800;
+sunLight.shadow.camera.right=sunLight.shadow.camera.top=800;
+scene.add(sunLight);
+const fillLight = new THREE.DirectionalLight(0xd0e8ff, 0.3);
+fillLight.position.set(-400, 200, -300);
+scene.add(fillLight);
 
+// ── Ground ────────────────────────────────────────────
+const ground = new THREE.Mesh(
+    new THREE.CircleGeometry(600, 48),
+    new THREE.MeshLambertMaterial({ color: 0xe8e2d4 })
+);
+ground.rotation.x = -Math.PI/2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// ═══════════════════════════════════════════════════════
+// FIBONACCI TREE
+// ═══════════════════════════════════════════════════════
+const FIB = [1,1,2,3,5,8,13,21,34,55,89,144,233,377,610,987,1597];
+const MATURE='mature', YOUNG='young';
+let treeGroup = null;
+
+function rotateAround(v, axis, theta) {
+    let cos=Math.cos(theta), sin=Math.sin(theta);
+    let dot=v.x*axis.x+v.y*axis.y+v.z*axis.z;
+    return new THREE.Vector3(
+        v.x*cos+(axis.y*v.z-axis.z*v.y)*sin+axis.x*dot*(1-cos),
+        v.y*cos+(axis.z*v.x-axis.x*v.z)*sin+axis.y*dot*(1-cos),
+        v.z*cos+(axis.x*v.y-axis.y*v.x)*sin+axis.z*dot*(1-cos)
+    );
+}
+
+function randomPerpAxis(d) {
+    let arb = (Math.abs(d.y)<0.9) ? new THREE.Vector3(0,1,0) : new THREE.Vector3(1,0,0);
+    let perp = new THREE.Vector3().crossVectors(arb,d).normalize();
+    return rotateAround(perp, d, srandRange(0, Math.PI*2)).normalize();
+}
+
+function lerpColor(c1, c2, t) {
+    return new THREE.Color().lerpColors(new THREE.Color(c1), new THREE.Color(c2), t);
+}
+
+function buildBranch(group, x1,y1,z1, dir, len, depth, maxDepth, age, pathHash) {
+    if (depth<0 || len<1) return;
+
+    let x2=x1+dir.x*len, y2=y1+dir.y*len, z2=z1+dir.z*len;
+    let t=1-depth/maxDepth, tNext=1-(depth-1)/maxDepth;
+    let colS=lerpColor(params.trunkColor,params.twigColor,t);
+    let colE=lerpColor(params.trunkColor,params.twigColor,tNext);
+
+    let fibIdx =Math.min(depth+1, FIB.length-1);
+    let fibBase=Math.min(maxDepth+1, FIB.length-1);
+    let rStart=Math.max(0.3, params.baseRadius*FIB[fibIdx]/FIB[fibBase]);
+    let rEnd  =Math.max(0.3, params.baseRadius*FIB[Math.min(depth,FIB.length-1)]/FIB[fibBase]);
+
+    let midX=(x1+x2)/2, midY=(y1+y2)/2, midZ=(z1+z2)/2;
+    const geo = new THREE.CylinderGeometry(rEnd, rStart, len, 12, 1);
+
+    const colors=[];
+    const pos=geo.attributes.position;
+    for (let i=0; i<pos.count; i++) {
+        let frac=(pos.getY(i)+len/2)/len;
+        let c=new THREE.Color().lerpColors(colS,colE,frac);
+        colors.push(c.r,c.g,c.b);
+    }
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(colors,3));
+
+    const mesh=new THREE.Mesh(geo, new THREE.MeshLambertMaterial({vertexColors:true}));
+    mesh.castShadow=true; mesh.receiveShadow=true;
+    mesh.position.set(midX,midY,midZ);
+    const branchDir=new THREE.Vector3(dir.x,dir.y,dir.z).normalize();
+    mesh.quaternion.copy(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),branchDir));
+    group.add(mesh);
+
+    if (depth===0) {
+        if (age===YOUNG) {
+            let leafLen=10+nodeRandRange(pathHash,10,0,6), leafW=leafLen*0.38;
+            const ls=new THREE.Shape();
+            ls.moveTo(0,0);
+            ls.bezierCurveTo( leafW,leafLen*.25, leafW,leafLen*.75,0,leafLen);
+            ls.bezierCurveTo(-leafW,leafLen*.75,-leafW,leafLen*.25,0,0);
+            const leaf=new THREE.Mesh(
+                new THREE.ShapeGeometry(ls,8),
+                new THREE.MeshLambertMaterial({color:params.leafColor,side:THREE.DoubleSide})
+            );
+            leaf.castShadow=true;
+            leaf.position.set(x2,y2,z2);
+            leaf.quaternion.copy(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),branchDir));
+            leaf.rotateOnWorldAxis(branchDir, nodeRandRange(pathHash,11,0,Math.PI*2));
+            group.add(leaf);
+        } else {
+            const PETAL_N=5, flowerR=7;
+            const center=new THREE.Mesh(
+                new THREE.SphereGeometry(flowerR*.35,8,8),
+                new THREE.MeshLambertMaterial({color:0xffdd88})
+            );
+            center.castShadow=true;
+            center.position.set(x2,y2,z2);
+            group.add(center);
+
+            const ps=new THREE.Shape();
+            let pw=flowerR*.38,ph=flowerR;
+            ps.moveTo(0,0);
+            ps.bezierCurveTo( pw,ph*.25, pw,ph*.75,0,ph);
+            ps.bezierCurveTo(-pw,ph*.75,-pw,ph*.25,0,0);
+            const petalMat=new THREE.MeshLambertMaterial({color:params.petalColor,side:THREE.DoubleSide});
+            const baseQuat=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1),branchDir);
+
+            for (let i=0;i<PETAL_N;i++) {
+                const petal=new THREE.Mesh(new THREE.ShapeGeometry(ps,8),petalMat);
+                petal.castShadow=true;
+                petal.position.set(x2,y2,z2);
+                const spinQ=new THREE.Quaternion().setFromAxisAngle(branchDir,(Math.PI*2/PETAL_N)*i);
+                petal.quaternion.copy(spinQ.multiply(baseQuat));
+                group.add(petal);
+            }
+        }
+        return;
+    }
+
+    let phi=Math.pow(params.lenRatio,depth/maxDepth);
+    let baseAngle=(params.angle*Math.PI/180)*(1+(depth/maxDepth)*0.3);
+
+    // Deterministic choices for this node
+    let planeAz  = nodeRandRange(pathHash, 0, 0, Math.PI*2);
+    let swap     = nodeRand(pathHash, 1) > 0.5;
+    let nextLenL = len*phi*(1+nodeRandRange(pathHash, 2, -0.04, 0.04));
+    let nextLenR = len*phi*(1+nodeRandRange(pathHash, 3, -0.04, 0.04));
+
+    // Derive perpendicular axis from deterministic azimuth
+    let anyVec = (Math.abs(dir.y)<0.9) ? new THREE.Vector3(0,1,0) : new THREE.Vector3(1,0,0);
+    let basePerp = new THREE.Vector3().crossVectors(anyVec, dir).normalize();
+    let planeAxis = rotateAround(basePerp, dir, planeAz).normalize();
+
+    if (age===YOUNG) {
+        let j = nodeRandRange(pathHash, 4, -1,1) * baseAngle * 0;
+        // YOUNG: grow straight → MATURE; derive child pathHash
+        let childHash = (pathHash * 1664525 + 1013904223) >>> 0;
+        buildBranch(group,x2,y2,z2, rotateAround(dir,planeAxis,j).normalize(),
+                    nextLenL,depth-1,maxDepth,MATURE, childHash);
+    } else {
+        let ageL = swap ? YOUNG : MATURE;
+        let ageR = swap ? MATURE : YOUNG;
+        // Derive two deterministic child hashes (left = hash*prime, right = hash*prime2)
+        let hashL = (pathHash * 1664525  + 1013904223) >>> 0;
+        let hashR = (pathHash * 22695477 + 1)          >>> 0;
+        buildBranch(group,x2,y2,z2, rotateAround(dir,planeAxis,  baseAngle).normalize(),
+                    nextLenL,depth-1,maxDepth,ageL, hashL);
+        buildBranch(group,x2,y2,z2, rotateAround(dir,planeAxis, -baseAngle).normalize(),
+                    nextLenR,depth-1,maxDepth,ageR, hashR);
+    }
+}
+
+let _lastBuiltSeed = null;
+
+function buildTree() {
+    if (treeGroup) {
+        scene.remove(treeGroup);
+        treeGroup.traverse(o => { if(o.geometry)o.geometry.dispose(); if(o.material)o.material.dispose(); });
+    }
+    _globalSeed = params.seed;
+    _lastBuiltSeed = params.seed;
+    treeGroup = new THREE.Group();
+    buildBranch(treeGroup,0,0,0,new THREE.Vector3(0,1,0),
+                params.trunkLen,params.depth,params.depth,YOUNG, params.seed >>> 0);
+    scene.add(treeGroup);
+    renderOnce();
+}
+
+function applyBgColor() {
+    renderer.setClearColor(new THREE.Color(params.bgColor),1);
+    document.getElementById('canvas-wrap').style.background=params.bgColor;
+    renderOnce();
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER LOOP (on-demand)
+// ═══════════════════════════════════════════════════════
+let autoPlaying = false, needsRender = true, animId = null;
+
+// Auto-play state
+const GROW_MIN = 3;       // actual depth min (displays as 4)
+const GROW_MAX = 15;      // actual depth max (displays as 16)
+const GROW_INTERVAL = 1800;  // ms per growth step
+const LINGER_TIME   = 6000;  // ms to linger at max depth
+let _apDepth     = GROW_MIN;
+let _apLastStep  = 0;
+let _apLingering = false;
+
+function renderOnce() { needsRender = true; }
+
+function autoPlayStep(now) {
+    if (!autoPlaying) return;
+    let elapsed = now - _apLastStep;
+
+    if (_apLingering) {
+        if (elapsed >= LINGER_TIME) {
+            // Restart growth from min
+            _apDepth     = GROW_MIN;
+            _apLingering = false;
+            _apLastStep  = now;
+            params.depth = _apDepth;
+            syncDepthUI();
+            buildTree();
+        }
+    } else {
+        if (elapsed >= GROW_INTERVAL) {
+            _apLastStep = now;
+            if (_apDepth < GROW_MAX) {
+                _apDepth++;
+                params.depth = _apDepth;
+                syncDepthUI();
+                buildTree();
+            } else {
+                _apLingering = true;
+            }
+        }
+    }
+}
+
+function syncDepthUI() {
+    const el = document.getElementById('depth');
+    if (el) el.value = params.depth;
+    const vEl = document.getElementById('depth-value');
+    if (vEl) vEl.textContent = params.depth + 1;
+}
+
+function animate() {
+    animId = requestAnimationFrame(animate);
+    const now = performance.now();
+    if (autoPlaying) {
+        spherical.theta += 0.008;
+        updateCamera();
+        autoPlayStep(now);
+        renderer.render(scene, camera);
+    } else if (needsRender) {
+        renderer.render(scene, camera);
+        needsRender = false;
+    }
+}
+
+// ═══════════════════════════════════════════════════════
+// UI
+// ═══════════════════════════════════════════════════════
+let panelExpanded = false;
+function togglePanel() {
+    panelExpanded = !panelExpanded;
+    document.getElementById('panel-content').classList.toggle('collapsed', !panelExpanded);
+    document.getElementById('panel-toggle-btn').textContent = panelExpanded ? 'Hide ▾' : 'Show ▴';
+}
+
+function toggleAutoPlay() {
+    autoPlaying = !autoPlaying;
+    const btn  = document.getElementById('autoRotateBtn');
+    const hint = document.getElementById('drag-hint');
+    if (autoPlaying) {
+        // Start growth from current depth
+        _apDepth     = params.depth;
+        _apLingering = false;
+        _apLastStep  = performance.now();
+        btn.textContent = '⏹ Stop';
+        btn.classList.add('btn-green');
+        hint.textContent = 'Playing…';
+    } else {
+        btn.textContent = '▶ Grow';
+        btn.classList.remove('btn-green');
+        hint.textContent = 'Drag to rotate · Pinch to zoom';
+        renderOnce();
+    }
+}
+
+function updateParam(name,value) {
+    if (name === 'depth' && autoPlaying) toggleAutoPlay();
+    params[name]=value;
+    let el=document.getElementById(name+'-value');
+    if(el) {
+        if (name === 'depth') el.textContent = (+value + 1);
+        else el.textContent=(+value).toFixed(name==='lenRatio'?2:0);
+    }
+    buildTree();
+}
+
+function updateColor(name,value) {
+    params[name]=value;
+    if(name==='bgColor') applyBgColor(); else buildTree();
+}
+
+function updateSeed() {
+    let v=parseInt(document.getElementById('seed-input').value);
+    if(v>0){params.seed=v;buildTree();}else updateSeedDisplay();
+}
+function updateSeedDisplay(){document.getElementById('seed-input').value=params.seed;}
+function previousSeed(){params.seed=Math.max(1,params.seed-1);updateSeedDisplay();buildTree();}
+function nextSeed(){params.seed+=1;updateSeedDisplay();buildTree();}
+function randomSeedAndUpdate(){params.seed=Math.floor(Math.random()*999999)+1;updateSeedDisplay();buildTree();}
+
+function resetParameters() {
+    params={...defaultParams};
+    ['depth','trunkLen','lenRatio','angle','baseRadius'].forEach(k=>{
+        let el=document.getElementById(k); if(el)el.value=params[k];
+        let vEl=document.getElementById(k+'-value');
+        if(vEl) vEl.textContent = k==='depth' ? params[k]+1 : (+params[k]).toFixed(k==='lenRatio'?2:0);
+    });
+    ['trunkColor','twigColor','petalColor','leafColor','bgColor'].forEach(k=>{
+        let el=document.getElementById(k); if(el)el.value=params[k];
+    });
+    updateSeedDisplay(); applyBgColor(); buildTree();
+}
+
+function downloadPNG() {
+    renderer.render(scene,camera);
+    const link=document.createElement('a');
+    link.download='fibonacci_tree_'+params.seed+'.png';
+    link.href=renderer.domElement.toDataURL('image/png');
+    link.click();
+}
+
+// ── Init ──────────────────────────────────────────────
+// Stop auto-play immediately when user touches the depth slider
+document.getElementById('depth').addEventListener('touchstart', () => {
+    if (autoPlaying) toggleAutoPlay();
+}, { passive: true });
+
+applyBgColor();
+buildTree();
+animate();
+
+// Bind seed buttons via touchend+preventDefault to avoid iOS double-tap fullscreen exit
+function bindTouchBtn(id, fn) {
+    const el = document.getElementById(id);
+    el.addEventListener('touchend', e => { e.preventDefault(); fn(); }, { passive: false });
+    el.addEventListener('click', fn); // fallback for desktop
+}
+bindTouchBtn('btn-prev-seed',         previousSeed);
+bindTouchBtn('btn-next-seed',         nextSeed);
+bindTouchBtn('btn-random-seed',       randomSeedAndUpdate);
+bindTouchBtn('btn-random-seed-action', randomSeedAndUpdate);
 </script>
 </body>
 </html>
