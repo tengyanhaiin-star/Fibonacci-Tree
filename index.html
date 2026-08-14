@@ -117,13 +117,58 @@
         }
         #panel-content.collapsed { display: none; }
 
-        /* Action row (always visible) */
-        #action-row {
+        /* ── Bottom bar: depth slider + buttons ── */
+        #bottom-bar {
             display: flex;
+            flex-wrap: wrap;
+            align-items: center;
             gap: 8px;
             padding: 8px 16px 10px;
             border-top: 1px solid var(--anthropic-light-gray);
-            flex-shrink: 0;
+        }
+        #depth-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1 1 180px; /* grows, min 180px before wrapping */
+            min-width: 0;
+        }
+        #depth-bar label {
+            font-size: 11px;
+            color: var(--anthropic-mid-gray);
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        #depth-bar input[type="range"] {
+            flex: 1;
+            height: 4px;
+            background: var(--anthropic-light-gray);
+            border-radius: 2px;
+            outline: none;
+            -webkit-appearance: none;
+            min-width: 0;
+        }
+        #depth-bar input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px; height: 18px;
+            background: var(--anthropic-orange);
+            border-radius: 50%; cursor: pointer;
+        }
+        #depth-bar input[type="range"]::-moz-range-thumb {
+            width: 18px; height: 18px;
+            background: var(--anthropic-orange);
+            border-radius: 50%; border: none; cursor: pointer;
+        }
+        #action-row {
+            display: flex;
+            gap: 8px;
+            flex: 0 0 auto; /* don't grow, stay compact */
+        }
+        /* On very narrow screens, depth bar takes full width and buttons wrap below */
+        @media (max-width: 360px) {
+            #depth-bar  { flex: 1 1 100%; }
+            #action-row { flex: 1 1 100%; }
+            #action-row .btn { flex: 1; }
         }
 
         /* ── Controls ── */
@@ -183,7 +228,6 @@
             background: var(--anthropic-orange);
             border-radius: 50%; cursor: pointer;
         }
-        .val { font-family: 'Courier Prime', monospace; font-size: 10px; color: var(--anthropic-mid-gray); min-width: 32px; text-align: right; }
 
         /* Colors grid */
         .colors-grid {
@@ -206,13 +250,14 @@
             background: var(--anthropic-light);
             color: var(--anthropic-dark);
             border: 1px solid var(--anthropic-light-gray);
-            padding: 10px 8px;
+            padding: 6px 14px;
             border-radius: 10px;
             font-family: 'Inter', sans-serif;
             font-size: 12px; font-weight: 500;
             cursor: pointer;
             transition: all 0.15s ease;
             text-align: center;
+            white-space: nowrap;
         }
         .btn:active { opacity: 0.7; }
         .btn-primary { background: var(--anthropic-orange); color: white; border-color: var(--anthropic-orange); }
@@ -246,6 +291,21 @@
             </div>
         </div>
 
+        <!-- Always-visible controls: depth + action buttons -->
+        <div id="bottom-bar">
+            <div id="depth-bar">
+                <label>Depth</label>
+                <input type="range" id="depth" min="3" max="15" step="1" value="9"
+                       oninput="updateParam('depth',+this.value)">
+                <span class="val" id="depth-value">10</span>
+            </div>
+            <div id="action-row">
+                <button class="btn" id="autoRotateBtn" onclick="toggleAutoPlay()">▶ Grow</button>
+                <button class="btn" id="btn-random-seed-action" onclick="randomSeedAndUpdate()">✦ Random</button>
+                <button class="btn" onclick="resetParameters()">Reset</button>
+            </div>
+        </div>
+
         <div id="panel-content" class="collapsed">
             <!-- Seed -->
             <div class="section">
@@ -262,13 +322,6 @@
             <div class="section">
                 <div class="section-title">Parameters</div>
                 <div class="params-grid">
-                    <div class="control-group">
-                        <label>Depth</label>
-                        <div class="control-row">
-                            <input type="range" id="depth" min="3" max="15" step="1" value="9" oninput="updateParam('depth',+this.value)">
-                            <span class="val" id="depth-value">10</span>
-                        </div>
-                    </div>
                     <div class="control-group">
                         <label>Trunk Length</label>
                         <div class="control-row">
@@ -328,13 +381,6 @@
             </div>
         </div>
 
-        <!-- Action row (always visible) -->
-        <div id="action-row">
-            <button class="btn" id="autoRotateBtn" onclick="toggleAutoPlay()">▶ Grow</button>
-            <button class="btn" id="btn-random-seed-action" onclick="randomSeedAndUpdate()">✦ Random</button>
-            <button class="btn" onclick="resetParameters()">Reset</button>
-            <button class="btn btn-primary" onclick="downloadPNG()">Save</button>
-        </div>
     </div>
 </div>
 
@@ -793,6 +839,7 @@ function nextSeed(){params.seed+=1;updateSeedDisplay();buildTree();}
 function randomSeedAndUpdate(){params.seed=Math.floor(Math.random()*999999)+1;updateSeedDisplay();buildTree();}
 
 function resetParameters() {
+    if (autoPlaying) toggleAutoPlay();
     params={...defaultParams};
     ['depth','trunkLen','lenRatio','angle','baseRadius'].forEach(k=>{
         let el=document.getElementById(k); if(el)el.value=params[k];
@@ -803,27 +850,6 @@ function resetParameters() {
         let el=document.getElementById(k); if(el)el.value=params[k];
     });
     updateSeedDisplay(); applyBgColor(); buildTree();
-}
-
-function downloadPNG() {
-    renderer.render(scene, camera);
-    const dataURL = renderer.domElement.toDataURL('image/png');
-    // iOS Safari does not support <a download>; open the image in a new tab
-    // so the user can long-press to save to Photos
-    const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent);
-    if (isIOS) {
-        const win = window.open();
-        win.document.write(
-            '<style>body{margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh}</style>' +
-            '<img src="' + dataURL + '" style="max-width:100%;max-height:100vh">' +
-            '<p style="position:fixed;bottom:16px;left:0;right:0;text-align:center;color:#fff;font-family:sans-serif;font-size:14px">Long-press the image to save to Photos</p>'
-        );
-    } else {
-        const link = document.createElement('a');
-        link.download = 'fibonacci_tree_' + params.seed + '.png';
-        link.href = dataURL;
-        link.click();
-    }
 }
 
 // ── Init ──────────────────────────────────────────────
