@@ -1,659 +1,882 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<meta name="theme-color" id="theme-color" content="#faf9f5">
-<title>Circular Maze</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-:root{--bg:#faf9f5;--sur:#ffffff;--dark:#141413;--mid:#b0aea5;--lg:#e8e6dc;--or:#d97757;--safe-bottom:env(safe-area-inset-bottom,0px)}
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Roboto',sans-serif;color:var(--dark)}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>Fibonacci Tree</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --anthropic-dark: #141413;
+            --anthropic-light: #faf9f5;
+            --anthropic-mid-gray: #b0aea5;
+            --anthropic-light-gray: #e8e6dc;
+            --anthropic-orange: #d97757;
+            --anthropic-green: #788c5d;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
-/* ── Main layout: maze top, controls bottom ── */
-#app{display:flex;flex-direction:column;height:100%;height:100dvh}
-#maze-wrap{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;padding:8px 8px 0}
-#cc canvas{display:block;touch-action:none}
-#status-msg{text-align:center;font-size:13px;font-weight:600;color:var(--or);height:20px;padding:2px 0}
+        html, body {
+            width: 100%; height: 100%;
+            font-family: 'Roboto', sans-serif;
+            background: #f5f0e8;
+            color: var(--anthropic-dark);
+            overflow: hidden;
+        }
 
-/* ── Bottom panel ── */
-#bottom{background:var(--sur);border-top:1px solid var(--lg);padding:8px 16px calc(8px + var(--safe-bottom));display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0}
+        /* ── Layout ── */
+        #app {
+            width: 100%;
+            height: 100vh;
+            height: 100dvh;
+        }
 
-/* ── D-pad ── */
-#dpad{display:grid;grid-template-columns:repeat(3,56px);grid-template-rows:repeat(3,56px);gap:5px;user-select:none}
-#dpad button{width:56px;height:56px;padding:0;font-size:22px;border:none;border-radius:12px;background:var(--lg);color:var(--dark);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .1s;-webkit-user-select:none;touch-action:manipulation}
-#dpad button:active,#dpad button.pressed{background:var(--or);color:#fff}
-#dpad .center{display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--mid)}
+        /* Canvas always fills the full screen */
+        #canvas-wrap {
+            position: fixed;
+            inset: 0;
+            background: #f5f0e8;
+            overflow: hidden;
+        }
+        #canvas-wrap canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+        }
 
-/* ── Landscape: dpad moves to the right, maze fills left ── */
-@media (orientation:landscape) and (max-height:600px) {
-  #app{flex-direction:row;flex-wrap:wrap}
-  #topbar{width:100%;order:0;padding:4px 12px 0}
-  #topbar h1{font-size:13px}
-  .icon-btn{font-size:16px;padding:3px}
-  #status-msg{width:100%;order:1;height:14px;font-size:11px;padding:0}
-  #maze-wrap{order:2;flex:1;min-width:0;padding:4px 4px 4px 8px;align-self:stretch}
-  #bottom{order:3;width:auto;flex-shrink:0;border-top:none;border-left:1px solid var(--lg);padding:8px 12px calc(8px + var(--safe-bottom));justify-content:center;align-self:stretch}
-  #dpad{grid-template-columns:repeat(3,44px);grid-template-rows:repeat(3,44px);gap:4px}
-  #dpad button{width:44px;height:44px;font-size:18px;border-radius:10px}
-  .hint{font-size:9px}
-}
+        /* Drag hint */
+        #drag-hint {
+            position: absolute;
+            bottom: 10px; right: 12px;
+            font-size: 11px;
+            color: rgba(140,130,120,0.8);
+            pointer-events: none;
+        }
 
-/* ── Top bar ── */
-#topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 12px 0;flex-shrink:0}
-#topbar h1{font-family:'Roboto',sans-serif;font-size:17px;font-weight:400}
-.icon-btn{background:none;border:none;cursor:pointer;padding:6px;border-radius:8px;font-size:20px;color:var(--dark);transition:background .15s}
-.icon-btn:hover{background:var(--lg)}
-.topbar-btns{display:flex;gap:4px}
+        /* ── Bottom panel — floats over canvas ── */
+        #panel {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: rgba(255,255,255,0.97);
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.12);
+            border-radius: 16px 16px 0 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            max-height: 70vh;
+            z-index: 10;
+        }
 
-/* ── Settings drawer ── */
-#drawer-bg{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:10;opacity:0;pointer-events:none;transition:opacity .25s}
-#drawer-bg.open{opacity:1;pointer-events:all}
-#drawer{position:fixed;bottom:0;left:0;right:0;background:var(--sur);border-radius:18px 18px 0 0;z-index:11;padding:16px 20px calc(20px + var(--safe-bottom));max-height:80vh;overflow-y:auto;transform:translateY(100%);transition:transform .3s cubic-bezier(.32,0,.67,0)}
-#drawer.open{transform:translateY(0)}
-#drawer h2{font-family:'Roboto',sans-serif;font-size:16px;font-weight:400;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center}
-#drawer h2 button{background:none;border:none;font-size:22px;cursor:pointer;color:var(--mid);padding:0}
+        /* Drag handle */
+        #panel-handle {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px 0 4px;
+            cursor: pointer;
+            user-select: none;
+        }
+        #panel-handle .handle-bar {
+            width: 36px; height: 4px;
+            background: var(--anthropic-light-gray);
+            border-radius: 2px;
+            margin-bottom: 8px;
+        }
+        #panel-title-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            padding: 0 16px 8px;
+        }
+        #panel-title {
+            font-family: 'Roboto', sans-serif;
+            font-size: 16px;
+            font-weight: 500;
+        }
+        #panel-toggle-btn {
+            font-size: 12px;
+            color: var(--anthropic-orange);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-family: 'Roboto', sans-serif;
+            font-weight: 500;
+            padding: 4px 8px;
+        }
 
-.section{margin-bottom:20px}
-.stitle{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--mid);margin-bottom:10px;display:flex;align-items:center;gap:6px}
-.stitle::before{content:'';width:10px;height:2px;background:var(--or);border-radius:1px}
-.seed-box{width:100%;background:var(--bg);border:1.5px solid var(--lg);border-radius:8px;padding:10px;font-family:'Roboto',sans-serif;font-size:15px;text-align:center;color:var(--dark);margin-bottom:8px;transition:border-color .2s}
-.seed-box:focus{outline:none;border-color:var(--or)}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:7px}
-.g1{margin-bottom:7px}
-button.btn{display:block;width:100%;padding:10px 12px;border:none;border-radius:8px;font-family:'Roboto',sans-serif;font-size:13px;font-weight:500;cursor:pointer;background:var(--lg);color:var(--dark);transition:all .15s;touch-action:manipulation}
-button.btn:hover,button.btn:active{background:var(--mid);color:#fff}
-button.btn.accent{background:var(--or);color:#fff}
-button.btn.accent:active{background:#c46640}
-.ctrl{margin-bottom:14px}
-.ctrl label{display:flex;justify-content:space-between;font-size:13px;font-weight:500;margin-bottom:7px}
-.ctrl label span{font-family:'Roboto',sans-serif;color:var(--mid);font-size:12px}
-input[type=range]{width:100%;height:4px;-webkit-appearance:none;background:var(--lg);border-radius:2px;outline:none}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;background:var(--or);border-radius:50%;cursor:pointer}
-input[type=range]::-moz-range-thumb{width:20px;height:20px;background:var(--or);border-radius:50%;border:none;cursor:pointer}
+        /* Scrollable content */
+        #panel-content {
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 0 16px 20px;
+            flex: 1;
+        }
+        #panel-content.collapsed { display: none; }
 
-.trow{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-.trow>label:first-child{font-size:13px;font-weight:500}
-.tog{position:relative;width:38px;height:22px}
-.tog input{opacity:0;width:0;height:0}
-.tslider{position:absolute;inset:0;background:var(--lg);border-radius:22px;cursor:pointer;transition:.2s}
-.tslider::before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
-.tog input:checked+.tslider{background:var(--or)}
-.tog input:checked+.tslider::before{transform:translateX(16px)}
+        /* ── Bottom bar: depth slider + buttons ── */
+        #bottom-bar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px 10px;
+            border-top: 1px solid var(--anthropic-light-gray);
+        }
+        #depth-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1 1 180px; /* grows, min 180px before wrapping */
+            min-width: 0;
+        }
+        #depth-bar label {
+            font-size: 11px;
+            color: var(--anthropic-mid-gray);
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        #depth-bar input[type="range"] {
+            flex: 1;
+            height: 4px;
+            background: var(--anthropic-light-gray);
+            border-radius: 2px;
+            outline: none;
+            -webkit-appearance: none;
+            min-width: 0;
+        }
+        #depth-bar input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px; height: 18px;
+            background: var(--anthropic-orange);
+            border-radius: 50%; cursor: pointer;
+        }
+        #depth-bar input[type="range"]::-moz-range-thumb {
+            width: 18px; height: 18px;
+            background: var(--anthropic-orange);
+            border-radius: 50%; border: none; cursor: pointer;
+        }
+        #action-row {
+            display: flex;
+            gap: 8px;
+            flex: 0 0 auto; /* don't grow, stay compact */
+        }
+        /* On very narrow screens, depth bar takes full width and buttons wrap below */
+        @media (max-width: 360px) {
+            #depth-bar  { flex: 1 1 100%; }
+            #action-row { flex: 1 1 100%; }
+            #action-row .btn { flex: 1; }
+        }
 
-.diff-btns{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:4px}
-.diff-btn{padding:10px 4px;border:2px solid var(--lg);border-radius:10px;background:var(--bg);font-family:'Roboto',sans-serif;font-size:11px;font-weight:600;cursor:pointer;text-align:center;line-height:1.4;transition:all .15s;color:var(--dark)}
-.diff-btn:active{opacity:.7}
-.diff-btn.active{border-color:var(--or);background:var(--or);color:#fff}
-.diff-btn .emoji{font-size:18px;display:block;margin-bottom:3px}
-</style>
+        /* ── Controls ── */
+        .section { margin-bottom: 18px; }
+        .section-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--anthropic-mid-gray);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 10px;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .section-title::before { content: '•'; color: var(--anthropic-orange); }
+
+        /* Seed row */
+        .seed-row {
+            display: flex; gap: 6px; align-items: center;
+            margin-bottom: 8px;
+        }
+        .seed-input {
+            flex: 1;
+            background: var(--anthropic-light);
+            padding: 8px 10px;
+            border-radius: 8px;
+            font-family: 'Roboto', sans-serif;
+            font-size: 13px;
+            border: 1px solid var(--anthropic-light-gray);
+            text-align: center;
+            color: var(--anthropic-dark);
+            min-width: 0;
+        }
+        .seed-input:focus { outline: none; border-color: var(--anthropic-orange); }
+
+        /* Parameters grid */
+        .params-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .control-group { display: flex; flex-direction: column; gap: 4px; }
+        .control-group label {
+            font-size: 11px;
+            color: var(--anthropic-mid-gray);
+            font-weight: 500;
+        }
+        .control-row { display: flex; align-items: center; gap: 6px; }
+        .control-row input[type="range"] {
+            flex: 1; height: 4px;
+            background: var(--anthropic-light-gray);
+            border-radius: 2px; outline: none;
+            -webkit-appearance: none; min-width: 0;
+        }
+        .control-row input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px; height: 18px;
+            background: var(--anthropic-orange);
+            border-radius: 50%; cursor: pointer;
+        }
+
+        /* Colors grid */
+        .colors-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+        }
+        .color-item { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+        .color-item label { font-size: 9px; color: var(--anthropic-mid-gray); text-align: center; line-height: 1.2; }
+        .color-item input[type="color"] {
+            width: 36px; height: 36px;
+            border: none; border-radius: 8px;
+            cursor: pointer; background: none; padding: 0;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+        }
+
+        /* Buttons */
+        .btn {
+            flex: 1;
+            background: var(--anthropic-light);
+            color: var(--anthropic-dark);
+            border: 1px solid var(--anthropic-light-gray);
+            padding: 6px 14px;
+            border-radius: 10px;
+            font-family: 'Roboto', sans-serif;
+            font-size: 12px; font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            text-align: center;
+            white-space: nowrap;
+        }
+        .btn:active { opacity: 0.7; }
+        .btn-primary { background: var(--anthropic-orange); color: white; border-color: var(--anthropic-orange); }
+        .btn-green   { background: var(--anthropic-green);  color: white; border-color: var(--anthropic-green); }
+
+        .seed-btn {
+            background: var(--anthropic-light);
+            border: 1px solid var(--anthropic-light-gray);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 13px; cursor: pointer;
+            color: var(--anthropic-dark);
+        }
+        .seed-btn:active { background: var(--anthropic-orange); color: white; }
+    </style>
 </head>
 <body>
 <div id="app">
-  <!-- Top bar -->
-  <div id="topbar">
-    <h1>⭕ Circular Maze</h1>
-    <div class="topbar-btns">
-      <button class="icon-btn" onclick="resetPlayer()" title="Restart">↩️</button>
-      <button class="icon-btn" onclick="rndSeed()" title="Random maze">🎲</button>
-      <button class="icon-btn" onclick="openDrawer()" title="Settings">⚙️</button>
+    <!-- Canvas -->
+    <div id="canvas-wrap">
+        <div id="drag-hint">Drag to rotate · Pinch to zoom</div>
     </div>
-  </div>
 
-  <!-- Status -->
-  <div id="status-msg"></div>
+    <!-- Bottom panel -->
+    <div id="panel">
+        <div id="panel-handle" onclick="togglePanel()">
+            <div class="handle-bar"></div>
+            <div id="panel-title-row">
+                <span id="panel-title">Fibonacci Tree</span>
+                <button id="panel-toggle-btn">Show ▴</button>
+            </div>
+        </div>
 
-  <!-- Maze canvas -->
-  <div id="maze-wrap">
-    <div id="cc"></div>
-  </div>
+        <!-- Always-visible controls: depth + action buttons -->
+        <div id="bottom-bar">
+            <div id="depth-bar">
+                <label>Depth</label>
+                <input type="range" id="depth" min="3" max="15" step="1" value="9"
+                       oninput="updateParam('depth',+this.value)">
+                <span class="val" id="depth-value">10</span>
+            </div>
+            <div id="action-row">
+                <button class="btn" id="autoRotateBtn" onclick="toggleAutoPlay()">▶ Grow</button>
+                <button class="btn" id="btn-random-seed-action" onclick="randomSeedAndUpdate()">✦ Random</button>
+                <button class="btn" onclick="resetParameters()">Reset</button>
+            </div>
+        </div>
 
-  <!-- Bottom controls -->
-  <div id="bottom">
-    <div id="dpad">
-      <div></div>
-      <button id="btn-out" ontouchstart="handleDpad(event,'out')" onmousedown="handleDpad(event,'out')">↑</button>
-      <div></div>
-      <button id="btn-ccw" ontouchstart="handleDpad(event,'ccw')" onmousedown="handleDpad(event,'ccw')">←</button>
-      <div class="center">●</div>
-      <button id="btn-cw"  ontouchstart="handleDpad(event,'cw')"  onmousedown="handleDpad(event,'cw')">→</button>
-      <div></div>
-      <button id="btn-in"  ontouchstart="handleDpad(event,'in')"  onmousedown="handleDpad(event,'in')">↓</button>
-      <div></div>
-    </div>
-    <div class="hint">↑ Outward &nbsp; ↓ Inward &nbsp; ← Counter-clockwise &nbsp; → Clockwise</div>
-  </div>
-</div>
+        <div id="panel-content" class="collapsed">
+            <!-- Seed -->
+            <div class="section">
+                <div class="section-title">Seed</div>
+                <div class="seed-row">
+                    <button class="seed-btn" id="btn-prev-seed">←</button>
+                    <input type="number" class="seed-input" id="seed-input" value="12345" onchange="updateSeed()">
+                    <button class="seed-btn" id="btn-next-seed">→</button>
+                    <button class="seed-btn" id="btn-random-seed">✦</button>
+                </div>
+            </div>
 
-<!-- Settings drawer -->
-<div id="drawer-bg" onclick="closeDrawer()"></div>
-<div id="drawer">
-  <h2>Settings <button onclick="closeDrawer()">×</button></h2>
+            <!-- Parameters -->
+            <div class="section">
+                <div class="section-title">Parameters</div>
+                <div class="params-grid">
+                    <div class="control-group">
+                        <label>Trunk Length</label>
+                        <div class="control-row">
+                            <input type="range" id="trunkLen" min="100" max="200" step="5" value="160" oninput="updateParam('trunkLen',+this.value)">
+                            <span class="val" id="trunkLen-value">160</span>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label>Decay Ratio</label>
+                        <div class="control-row">
+                            <input type="range" id="lenRatio" min="0.6" max="0.85" step="0.01" value="0.70" oninput="updateParam('lenRatio',+this.value)">
+                            <span class="val" id="lenRatio-value">0.70</span>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label>Fork Angle</label>
+                        <div class="control-row">
+                            <input type="range" id="angle" min="10" max="60" step="1" value="24" oninput="updateParam('angle',+this.value)">
+                            <span class="val" id="angle-value">24</span>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label>Trunk Width</label>
+                        <div class="control-row">
+                            <input type="range" id="baseRadius" min="1" max="15" step="0.5" value="12" oninput="updateParam('baseRadius',+this.value)">
+                            <span class="val" id="baseRadius-value">12</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-  <div class="section">
-    <div class="stitle">Difficulty</div>
-    <div class="diff-btns">
-      <button class="diff-btn active" id="diff-easy" onclick="setDiff('easy')"><span class="emoji">🗺️</span>Treasure Hunt<br><span style="font-weight:400;color:inherit;font-size:10px">Easy</span></button>
-      <button class="diff-btn" id="diff-medium" onclick="setDiff('medium')"><span class="emoji">🏝️</span>Island Survival<br><span style="font-weight:400;color:inherit;font-size:10px">Medium</span></button>
-      <button class="diff-btn" id="diff-hard" onclick="setDiff('hard')"><span class="emoji">🕳️</span>Cave Explorer<br><span style="font-weight:400;color:inherit;font-size:10px">Hard</span></button>
-    </div>
-  </div>
+            <!-- Colors -->
+            <div class="section">
+                <div class="section-title">Colors</div>
+                <div class="colors-grid">
+                    <div class="color-item">
+                        <input type="color" id="trunkColor" value="#5c3d1e" onchange="updateColor('trunkColor',this.value)">
+                        <label>Trunk</label>
+                    </div>
+                    <div class="color-item">
+                        <input type="color" id="twigColor" value="#788c5d" onchange="updateColor('twigColor',this.value)">
+                        <label>Twig</label>
+                    </div>
+                    <div class="color-item">
+                        <input type="color" id="petalColor" value="#d97757" onchange="updateColor('petalColor',this.value)">
+                        <label>Flower</label>
+                    </div>
+                    <div class="color-item">
+                        <input type="color" id="leafColor" value="#5a8a3c" onchange="updateColor('leafColor',this.value)">
+                        <label>Leaf</label>
+                    </div>
+                    <div class="color-item">
+                        <input type="color" id="bgColor" value="#f5f0e8" onchange="updateColor('bgColor',this.value)">
+                        <label>BG</label>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-  <div class="section">
-    <div class="stitle">Seed</div>
-    <input class="seed-box" id="seed-input" type="number" value="12345" onchange="applySeed()">
-    <div class="g2">
-      <button class="btn" onclick="prevSeed()">← Previous</button>
-      <button class="btn" onclick="nextSeed()">Next →</button>
     </div>
-    <div class="g1"><button class="btn accent" onclick="rndSeed();closeDrawer()">🎲 Random Seed</button></div>
-  </div>
-
-  <div class="section">
-    <div class="stitle">Parameters</div>
-    <div class="ctrl">
-      <label>Rings <span id="lv-rings">9</span></label>
-      <input type="range" id="sl-rings" min="3" max="24" step="1" value="9" oninput="sp('rings',+this.value,'lv-rings')">
-    </div>
-    <div class="ctrl">
-      <label>Sectors <span id="lv-inner">12</span></label>
-      <input type="range" id="sl-inner" min="4" max="30" step="2" value="12" oninput="sp('innerCells',+this.value,'lv-inner')">
-    </div>
-    <div class="trow">
-      <label>Show Solution</label>
-      <label class="tog"><input type="checkbox" id="chk-sol" onchange="st('showSolution',this.checked)"><span class="tslider"></span></label>
-    </div>
-    <div class="trow">
-      <label>Show Trail</label>
-      <label class="tog"><input type="checkbox" id="chk-trail" checked onchange="st('showTrail',this.checked)"><span class="tslider"></span></label>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="stitle">Actions</div>
-    <div class="g2" style="margin-bottom:8px">
-      <button class="btn" onclick="resetPlayer();closeDrawer()">Restart</button>
-      <button class="btn" onclick="resetAll()">Reset All</button>
-    </div>
-  </div>
 </div>
 
 <script>
-// ── PRNG ───────────────────────────────────────────────────────
-function mkRng(seed){
-    let s=seed>>>0;
-    return()=>{s=(s+0x6D2B79F5)|0;let t=Math.imul(s^(s>>>15),1|s);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296};
-}
-
-// ── Params ─────────────────────────────────────────────────────
-const BG='#faf9f5', WALL='#1a1917', PATH='#d97757';
-let params={seed:12345,rings:9,innerCells:12,showSolution:false,showTrail:true,difficulty:'easy'};
-const DEF={...params};
-
-function wallWeight(){
-    const t=params.rings+params.innerCells;
-    if(t<=12) return 2;
-    if(t<=24) return 1.5;
-    if(t<=36) return 1;
-    return 0.5;
-}
-
-// ── Player ─────────────────────────────────────────────────────
-let player={hub:true}, trail=[], visited=new Set(), won=false, steps=0;
-
-// Encode pos to string key for visited set
-function posKey(pos){return pos.hub?'hub':`${pos.r},${pos.s}`;}
-
-// Get visible cell keys for current player position
-function getVisible(grid,counts,rings,hubEntry){
-    const vis=new Set();
-    // Helper: add a cell and its direct passable neighbors
-    function addCell(key){
-        vis.add(key);
-    }
-    function neighborsOf(pos){
-        const nb=[];
-        if(pos.hub){
-            // hub is adjacent to all ring-0 cells
-            for(let s=0;s<counts[0];s++) nb.push(`0,${s}`);
-        } else {
-            const{r,s}=pos, n=counts[r];
-            if(r+1<rings) nb.push(`${r+1},${s}`);
-            if(r===0) nb.push('hub');
-            else nb.push(`${r-1},${s}`);
-            nb.push(`${r},${(s+1)%n}`);
-            nb.push(`${r},${(s-1+n)%n}`);
-        }
-        return nb;
-    }
-    function passableNeighborsOf(pos){
-        const nb=[];
-        if(pos.hub){
-            if(!grid[0][hubEntry].walls[0]) nb.push(`0,${hubEntry}`);
-        } else {
-            const{r,s}=pos, n=counts[r];
-            if(r+1<rings&&!grid[r][s].walls[1]) nb.push(`${r+1},${s}`);
-            if(r===0&&s===hubEntry&&!grid[r][s].walls[0]) nb.push('hub');
-            else if(r>0&&!grid[r][s].walls[0]) nb.push(`${r-1},${s}`);
-            if(!grid[r][s].walls[2]) nb.push(`${r},${(s+1)%n}`);
-            if(!grid[r][s].walls[3]) nb.push(`${r},${(s-1+n)%n}`);
-        }
-        return nb;
-    }
-    function keyToPos(key){ if(key==='hub')return{hub:true}; const[r,s]=key.split(',').map(Number);return{r,s}; }
-
-    // Layer 0: current cell
-    const cur=posKey(player);
-    vis.add(cur);
-
-    // Layer 1: passable neighbors (cells player can directly reach)
-    const layer1=passableNeighborsOf(player);
-    for(const k of layer1) vis.add(k);
-
-    // Wall-visibility layer: all adjacents (passable or not) of current + layer1
-    // These cells are added to a separate "wallVis" set — their walls are drawn
-    // but they count as visible for wall-drawing purposes
-    const wallVis=new Set(vis);
-    for(const k of [cur,...layer1]){
-        for(const nk of neighborsOf(keyToPos(k))) wallVis.add(nk);
-    }
-
-    return{vis, wallVis};
-}
-
-function resetPlayer(){
-    player={hub:true}; trail=[{hub:true}]; visited=new Set(['hub']); won=false; steps=0;
-    document.getElementById('status-msg').textContent='';
-    // Pre-populate visited with initial visibility for medium mode
-    if(params.difficulty==='medium'&&maze){
-        const{wallVis}=getVisible(maze.grid,maze.counts,params.rings,maze.hubEntry);
-        for(const k of wallVis) visited.add(k);
-    }
-    if(inst)inst.redraw();
-}
-
-// ── Maze builder ───────────────────────────────────────────────
-function buildMaze(rings,n,rng){
-    const counts=Array(rings).fill(n);
-    const grid=counts.map(n=>Array.from({length:n},()=>({visited:false,walls:[true,true,true,true]})));
-    function getNbs(r,s){
-        const nb=[],n=counts[r];
-        if(r+1<rings)nb.push({r:r+1,s,w:1,nw:0});
-        if(r>0)nb.push({r:r-1,s,w:0,nw:1});
-        nb.push({r,s:(s+1)%n,w:2,nw:3});
-        nb.push({r,s:(s-1+n)%n,w:3,nw:2});
-        return nb;
-    }
-    const stack=[{r:0,s:0}];
-    grid[0][0].visited=true;
-    while(stack.length){
-        const{r,s}=stack[stack.length-1];
-        const uv=getNbs(r,s).filter(nb=>!grid[nb.r][nb.s].visited);
-        if(!uv.length){stack.pop();continue;}
-        const nb=uv[Math.floor(rng()*uv.length)];
-        grid[r][s].walls[nb.w]=false;
-        grid[nb.r][nb.s].walls[nb.nw]=false;
-        grid[nb.r][nb.s].visited=true;
-        stack.push({r:nb.r,s:nb.s});
-    }
-    const hubEntry=Math.floor(rng()*n);
-    grid[0][hubEntry].walls[0]=false;
-    return{grid,counts,hubEntry};
-}
-
-// ── BFS solver ─────────────────────────────────────────────────
-function solveMaze(grid,counts,rings,hubEntry){
-    const key=(r,s)=>r*2048+s, seen=new Set();
-    function getNbs(r,s){const n=counts[r],nb=[];if(r+1<rings)nb.push({r:r+1,s,w:1});if(r>0)nb.push({r:r-1,s,w:0});nb.push({r,s:(s+1)%n,w:2});nb.push({r,s:(s-1+n)%n,w:3});return nb;}
-    seen.add(key(0,hubEntry));
-    const q=[{r:0,s:hubEntry,path:[{r:0,s:hubEntry}]}];
-    while(q.length){
-        const{r,s,path}=q.shift();
-        if(r===rings-1&&s===0)return path;
-        for(const nb of getNbs(r,s))if(!grid[r][s].walls[nb.w]&&!seen.has(key(nb.r,nb.s))){seen.add(key(nb.r,nb.s));q.push({r:nb.r,s:nb.s,path:[...path,{r:nb.r,s:nb.s}]});}
-    }
-    return[];
-}
-
-// ── Move ───────────────────────────────────────────────────────
-function move(dir){
-    if(!maze||won)return;
-    const{grid,counts,hubEntry}=maze, rings=params.rings;
-    let moved=false;
-    if(player.hub){
-        if(dir==='out'){player={r:0,s:hubEntry};moved=true;}
-    } else {
-        const{r,s}=player, n=counts[r];
-        if(dir==='out'&&r<rings-1&&!grid[r][s].walls[1]){player={r:r+1,s};moved=true;}
-        else if(dir==='in'){
-            if(r===0&&s===hubEntry&&!grid[r][s].walls[0]){player={hub:true};moved=true;}
-            else if(r>0&&!grid[r][s].walls[0]){player={r:r-1,s};moved=true;}
-        }
-        else if(dir==='cw'&&!grid[r][s].walls[2]){player={r,s:(s+1)%n};moved=true;}
-        else if(dir==='ccw'&&!grid[r][s].walls[3]){player={r,s:(s-1+n)%n};moved=true;}
-    }
-    if(moved){
-        steps++;
-        trail.push({...player});
-        visited.add(posKey(player));
-        // In medium mode, also permanently reveal wall-visible cells
-        if(params.difficulty==='medium'&&maze){
-            const{vis,wallVis}=getVisible(maze.grid,maze.counts,params.rings,maze.hubEntry);
-            for(const k of wallVis) visited.add(k);
-        }
-        if(!player.hub&&player.r===params.rings-1&&player.s===0){
-            won=true;
-            document.getElementById('status-msg').textContent=`🎉 You made it! ${steps} steps`;
-        }
-        inst.redraw();
-    }
-}
-
-// ── D-pad handler ──────────────────────────────────────────────
-function handleDpad(e, d){
-    e.preventDefault();
-    e.stopPropagation();
-    const btn=document.getElementById('btn-'+d);
-    btn.classList.add('pressed');
-    setTimeout(()=>btn.classList.remove('pressed'), 150);
-    move(d);
-}
-
-// ── p5 sketch ──────────────────────────────────────────────────
-let inst, maze;
-const sketch=p=>{
-    const TWO_PI=Math.PI*2, HALF_PI=Math.PI/2;
-
-    p.setup=()=>{
-        const sz=csize();
-        const cv=p.createCanvas(sz,sz);
-        cv.parent('cc');
-        cv.elt.setAttribute('tabindex','0');
-        p.noLoop();
-        rebuild();
-    };
-
-    p.windowResized=()=>{p.resizeCanvas(csize(),csize());p.redraw();};
-
-    p.keyPressed=()=>{
-        if(document.activeElement===document.getElementById('seed-input'))return true;
-        if(p.keyCode===p.UP_ARROW)move('out');
-        else if(p.keyCode===p.DOWN_ARROW)move('in');
-        else if(p.keyCode===p.RIGHT_ARROW)move('cw');
-        else if(p.keyCode===p.LEFT_ARROW)move('ccw');
-        return false;
-    };
-
-    function csize(){
-        const landscape = window.innerWidth > window.innerHeight && window.innerHeight < 600;
-        if(landscape){
-            const bottomW = document.getElementById('bottom').getBoundingClientRect().width || 160;
-            const topH = document.getElementById('topbar').getBoundingClientRect().height + 14;
-            const availW = window.innerWidth - bottomW - 16;
-            const availH = window.innerHeight - topH - 8;
-            return Math.floor(Math.min(availW, availH, 600));
-        }
-        const bottomH = document.getElementById('bottom').getBoundingClientRect().height || 130;
-        const topH = document.getElementById('topbar').getBoundingClientRect().height + 20 + 16;
-        const h = window.innerHeight - topH - bottomH - 8;
-        return Math.floor(Math.min(window.innerWidth - 16, h, 600));
-    }
-
-    function rebuild(){
-        maze=buildMaze(params.rings,params.innerCells,mkRng(params.seed));
-        resetPlayer();
-    }
-
-    function sarc(cx,cy,r,a1,a2){
-        if(a2-a1<0.001)return;
-        const steps=Math.max(3,Math.ceil((a2-a1)/0.05));
-        p.beginShape();
-        for(let i=0;i<=steps;i++){const a=a1+(a2-a1)*i/steps;p.vertex(cx+r*Math.cos(a),cy+r*Math.sin(a));}
-        p.endShape();
-    }
-
-    function getRadii(rings,maxR){
-        const radii=[];
-        for(let r=0;r<=rings;r++)radii.push(maxR*Math.pow(r/rings,0.7));
-        return radii;
-    }
-
-    function posToXY(pos,counts,radii,hubR,cx,cy){
-        if(pos.hub)return[cx,cy];
-        const{r,s}=pos, n=counts[r];
-        const a=(s+0.5)/n*TWO_PI-HALF_PI;
-        const rm=(radii[r]+radii[r+1])/2;
-        return[cx+rm*Math.cos(a),cy+rm*Math.sin(a)];
-    }
-
-    p.draw=()=>{
-        if(!maze)return;
-        const{grid,counts,hubEntry}=maze, rings=params.rings;
-        const cx=p.width/2, cy=p.height/2;
-        const maxR=Math.min(cx,cy)-8;
-        const radii=getRadii(rings,maxR);
-        const hubR=radii[1]*0.42;
-        const[bR,bG,bB]=hex3(BG);
-        const[wR,wG,wB]=hex3(WALL);
-        const[pR,pG,pB]=hex3(PATH);
-        const diff=params.difficulty;
-
-        // Compute visible cells
-        const{vis:nowVis, wallVis:nowWallVis} = getVisible(grid,counts,rings,hubEntry);
-        function isVis(key){
-            if(diff==='easy') return true;
-            if(diff==='medium') return visited.has(key)||nowVis.has(key);
-            return nowVis.has(key);
-        }
-        function isWallVis(key){
-            if(diff==='easy') return true;
-            if(diff==='medium') return visited.has(key)||nowWallVis.has(key);
-            return nowWallVis.has(key);
-        }
-        function isCellVis(r,s){ return isVis(`${r},${s}`); }
-        function isCellWallVis(r,s){ return isWallVis(`${r},${s}`); }
-        function isHubVis(){ return isVis('hub'); }
-        function isHubWallVis(){ return isWallVis('hub'); }
-
-        p.background(bR,bG,bB);
-
-        // Helper: draw a path (array of pos) with arcs on same ring, lines across rings
-        function drawPathLine(positions, visCheck) {
-            // Build segments of consecutive visible positions
-            // Between two consecutive same-ring positions: draw arc at mid-radius
-            // Otherwise: draw straight line
-            const pts = positions.filter(pos => visCheck(posKey(pos)));
-            if (pts.length < 2) {
-                // single visible point — just draw it
-                if (pts.length === 1) {
-                    const [x,y] = posToXY(pts[0],counts,radii,hubR,cx,cy);
-                    p.point(x,y);
-                }
-                return;
-            }
-            // Walk through consecutive visible pairs from original positions array
-            // We need to preserve order and break on invisible gaps
-            let seg = [];
-            for (let i = 0; i < positions.length; i++) {
-                const pos = positions[i];
-                const vis = visCheck(posKey(pos));
-                if (vis) {
-                    seg.push(pos);
-                } else {
-                    if (seg.length >= 2) flushSeg(seg);
-                    seg = [];
-                }
-            }
-            if (seg.length >= 2) flushSeg(seg);
-
-            function flushSeg(seg) {
-                // Draw segment by segment between consecutive pairs
-                for (let i = 0; i < seg.length - 1; i++) {
-                    const a = seg[i], b = seg[i+1];
-                    drawSegment(a, b);
-                }
-            }
-
-            function drawSegment(a, b) {
-                // Same ring, neither is hub → draw arc
-                if (!a.hub && !b.hub && a.r === b.r) {
-                    const r = a.r, n = counts[r];
-                    const rm = (radii[r] + radii[r+1]) / 2;
-                    const aA = (a.s + 0.5) / n * TWO_PI - HALF_PI;
-                    const bA = (b.s + 0.5) / n * TWO_PI - HALF_PI;
-                    // Pick shortest arc direction
-                    let diff = bA - aA;
-                    if (diff >  Math.PI) diff -= TWO_PI;
-                    if (diff < -Math.PI) diff += TWO_PI;
-                    const steps = Math.max(4, Math.ceil(Math.abs(diff) / 0.05));
-                    p.beginShape();
-                    for (let k = 0; k <= steps; k++) {
-                        const ang = aA + diff * k / steps;
-                        p.vertex(cx + rm * Math.cos(ang), cy + rm * Math.sin(ang));
-                    }
-                    p.endShape();
-                } else {
-                    // Straight line (radial or hub transition)
-                    const [ax,ay] = posToXY(a,counts,radii,hubR,cx,cy);
-                    const [bx,by] = posToXY(b,counts,radii,hubR,cx,cy);
-                    p.line(ax,ay,bx,by);
-                }
-            }
-        }
-
-        // ── Solution path (only show segments in visible cells) ──
-        if(params.showSolution){
-            const path=solveMaze(grid,counts,rings,hubEntry);
-            p.noStroke();p.fill(pR,pG,pB,35);
-            for(const{r,s}of path){
-                if(!isCellVis(r,s))continue;
-                const n=counts[r],a1=s/n*TWO_PI-HALF_PI,a2=(s+1)/n*TWO_PI-HALF_PI;
-                const ri=radii[r],ro=radii[r+1],steps=Math.max(4,Math.ceil((a2-a1)/0.07));
-                p.beginShape();
-                for(let i=0;i<=steps;i++){const a=a1+(a2-a1)*i/steps;p.vertex(cx+ro*Math.cos(a),cy+ro*Math.sin(a));}
-                for(let i=steps;i>=0;i--){const a=a1+(a2-a1)*i/steps;p.vertex(cx+ri*Math.cos(a),cy+ri*Math.sin(a));}
-                p.endShape(p.CLOSE);
-            }
-            p.noFill();p.stroke(pR,pG,pB,120);p.strokeWeight(2);p.strokeCap(p.ROUND);p.strokeJoin(p.ROUND);
-            const fullPath=[{hub:true},...path];
-            drawPathLine(fullPath, k => isVis(k));
-        }
-
-        // ── Trail (only visible positions) ──
-        if(params.showTrail&&trail.length>1){
-            p.noFill();p.stroke(pR,pG,pB,90);p.strokeWeight(Math.max(2,maxR/rings*0.18));
-            p.strokeCap(p.ROUND);p.strokeJoin(p.ROUND);
-            drawPathLine(trail, k => isVis(k));
-        }
-
-        // ── Walls (use wallVis for wider wall visibility) ──
-        p.noFill();p.stroke(wR,wG,wB);p.strokeWeight(wallWeight());p.strokeCap(p.ROUND);
-        for(let r=0;r<rings;r++){
-            const n=counts[r],ri=(r===0)?hubR:radii[r],ro=radii[r+1];
-            for(let s=0;s<n;s++){
-                if(!isCellWallVis(r,s))continue;
-                const cell=grid[r][s];
-                const a1=s/n*TWO_PI-HALF_PI,a2=(s+1)/n*TWO_PI-HALF_PI;
-                if(r===0&&cell.walls[0])sarc(cx,cy,hubR,a1,a2);
-                if(cell.walls[1]){
-                    const isExit=(r===rings-1&&s===0);
-                    if(isExit){const mid=(a1+a2)/2,gh=(a2-a1)*0.35;sarc(cx,cy,ro,a1,mid-gh);sarc(cx,cy,ro,mid+gh,a2);}
-                    else sarc(cx,cy,ro,a1,a2);
-                }
-                if(cell.walls[2]){const a=a2;p.line(cx+ri*Math.cos(a),cy+ri*Math.sin(a),cx+ro*Math.cos(a),cy+ro*Math.sin(a));}
-            }
-        }
-
-        // ── Hub circle with gap ──
-        if(isHubWallVis()){
-            const n=counts[0],em=(hubEntry+0.5)/n*TWO_PI-HALF_PI,gh=(TWO_PI/n)*1.0;
-            sarc(cx,cy,hubR,em+gh,em-gh+TWO_PI);
-        }
-
-
-
-        // ── Fog overlay for non-easy modes ──
-        if(diff!=='easy'){
-            // Draw fog over invisible cells
-            p.noStroke();
-            const fogC=p.color(bR,bG,bB,235);
-            p.fill(fogC);
-            for(let r=0;r<rings;r++){
-                const n=counts[r],ri=radii[r],ro=radii[r+1];
-                for(let s=0;s<n;s++){
-                    if(isCellWallVis(r,s))continue;
-                    const a1=s/n*TWO_PI-HALF_PI,a2=(s+1)/n*TWO_PI-HALF_PI;
-                    const steps=Math.max(4,Math.ceil((a2-a1)/0.07));
-                    p.beginShape();
-                    for(let i=0;i<=steps;i++){const a=a1+(a2-a1)*i/steps;p.vertex(cx+ro*Math.cos(a),cy+ro*Math.sin(a));}
-                    for(let i=steps;i>=0;i--){const a=a1+(a2-a1)*i/steps;p.vertex(cx+ri*Math.cos(a),cy+ri*Math.sin(a));}
-                    p.endShape(p.CLOSE);
-                }
-            }
-            // fog over hub if not visible
-            if(!isHubWallVis()){
-                p.fill(fogC);
-                p.circle(cx,cy,radii[1]*2);
-            }
-        }
-
-        // ── Player ──
-        {
-            const[px,py]=posToXY(player,counts,radii,hubR,cx,cy);
-            const outerRingW=radii[rings]-radii[rings-1];
-            const ballR=Math.max(2, Math.min(hubR*Math.PI/params.innerCells, outerRingW/2.1));
-            p.noStroke();
-            p.fill(pR,pG,pB,40);p.circle(px,py,ballR*4);
-            p.fill(pR,pG,pB,80);p.circle(px,py,ballR*2.8);
-            p.fill(pR,pG,pB);p.circle(px,py,ballR*2);
-            p.fill(255,255,255,160);p.circle(px-ballR*.28,py-ballR*.28,ballR*.7);
-        }
-    };
-
-    p.rebuild=rebuild;
+// ═══════════════════════════════════════════════════════
+// PARAMETERS
+// ═══════════════════════════════════════════════════════
+let params = {
+    seed: 12345, depth: 9, trunkLen: 160, lenRatio: 0.70,
+    angle: 24, jitter: 0, baseRadius: 12,
+    trunkColor: '#5c3d1e', twigColor: '#788c5d',
+    petalColor: '#d97757', leafColor: '#5a8a3c', bgColor: '#f5f0e8',
 };
-inst=new p5(sketch);
+const defaultParams = {...params};
 
-function setDiff(d){
-    params.difficulty=d;
-    ['easy','medium','hard'].forEach(x=>document.getElementById('diff-'+x).classList.toggle('active',x===d));
-    resetPlayer();
+// ═══════════════════════════════════════════════════════
+// SEEDED RANDOM (LCG)
+// ═══════════════════════════════════════════════════════
+// Path-keyed random: each branch node gets a deterministic value
+// based on its position in the tree (seed + path hash), independent of traversal order.
+// This means changing depth never shifts randoms for existing branches.
+let _globalSeed = 12345;
+
+function nodeRand(pathHash, slot) {
+    // Mix seed + path + slot with a fast integer hash
+    let h = (_globalSeed ^ (pathHash * 2654435761)) >>> 0;
+    h = (h ^ (slot * 2246822519)) >>> 0;
+    h ^= h >>> 16;
+    h = Math.imul(h, 0x45d9f3b);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;
 }
 
-// ── Disable pinch-zoom on iOS ──────────────────────────────────
-document.addEventListener('gesturestart',  e => e.preventDefault());
-document.addEventListener('gesturechange', e => e.preventDefault());
-document.addEventListener('gestureend',    e => e.preventDefault());
-document.addEventListener('touchmove', e => { if(e.touches.length > 1) e.preventDefault(); }, {passive:false});
-
-function setThemeColor(c){document.getElementById('theme-color').setAttribute('content',c);}
-function openDrawer(){document.getElementById('drawer').classList.add('open');document.getElementById('drawer-bg').classList.add('open');setThemeColor(BG);}
-function closeDrawer(){document.getElementById('drawer').classList.remove('open');document.getElementById('drawer-bg').classList.remove('open');setThemeColor(BG);}
-
-// ── Helpers ────────────────────────────────────────────────────
-function hex3(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];}
-
-// ── UI ─────────────────────────────────────────────────────────
-function sp(k,v,l){params[k]=v;document.getElementById(l).textContent=v;inst.rebuild();}
-function st(k,v){params[k]=v;inst.redraw();}
-
-function applySeed(){const v=parseInt(document.getElementById('seed-input').value);if(v>0){params.seed=v;inst.rebuild();}}
-function prevSeed(){params.seed=Math.max(1,params.seed-1);sync();inst.rebuild();}
-function nextSeed(){params.seed++;sync();inst.rebuild();}
-function rndSeed(){params.seed=Math.floor(Math.random()*999999)+1;sync();inst.rebuild();}
-function sync(){document.getElementById('seed-input').value=params.seed;}
-function resetAll(){
-    params={...DEF};sync();
-    document.getElementById('sl-rings').value=params.rings;document.getElementById('lv-rings').textContent=params.rings;
-    document.getElementById('sl-inner').value=params.innerCells;document.getElementById('lv-inner').textContent=params.innerCells;
-    document.getElementById('chk-sol').checked=params.showSolution;
-    document.getElementById('chk-trail').checked=params.showTrail;
-
-    ['easy','medium','hard'].forEach(x=>document.getElementById('diff-'+x).classList.toggle('active',x===params.difficulty));
-    inst.rebuild();
+function nodeRandRange(pathHash, slot, lo, hi) {
+    return lo + nodeRand(pathHash, slot) * (hi - lo);
 }
+
+// ═══════════════════════════════════════════════════════
+// THREE.JS SETUP
+// ═══════════════════════════════════════════════════════
+const wrap = document.getElementById('canvas-wrap');
+
+const scene    = new THREE.Scene();
+const camera   = new THREE.PerspectiveCamera(45, wrap.clientWidth / wrap.clientHeight, 1, 8000);
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // cap for performance on retina
+renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+wrap.appendChild(renderer.domElement);
+
+// Camera
+let spherical = { theta: 0, phi: Math.PI * 0.38, r: 900 };
+const target  = new THREE.Vector3(0, 280, 0);
+
+function updateCamera() {
+    camera.position.set(
+        target.x + spherical.r * Math.sin(spherical.phi) * Math.sin(spherical.theta),
+        target.y + spherical.r * Math.cos(spherical.phi),
+        target.z + spherical.r * Math.sin(spherical.phi) * Math.cos(spherical.theta)
+    );
+    camera.lookAt(target);
+}
+updateCamera();
+
+// ── Touch controls ────────────────────────────────────
+let prevTouch1 = null, prevTouch2 = null;
+
+renderer.domElement.addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (e.touches.length === 1) {
+        prevTouch1 = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+        prevTouch2 = null;
+    } else if (e.touches.length === 2) {
+        prevTouch1 = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+        prevTouch2 = {x: e.touches[1].clientX, y: e.touches[1].clientY};
+    }
+}, { passive: false });
+
+renderer.domElement.addEventListener('touchmove', e => {
+    e.preventDefault();
+
+    if (e.touches.length === 1 && prevTouch1) {
+        let dx = e.touches[0].clientX - prevTouch1.x;
+        let dy = e.touches[0].clientY - prevTouch1.y;
+        spherical.theta -= dx * 0.006;
+        spherical.phi = Math.max(0.05, Math.min(Math.PI * 0.48, spherical.phi + dy * 0.006));
+        prevTouch1 = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+        updateCamera();
+        renderOnce();
+
+    } else if (e.touches.length === 2 && prevTouch1 && prevTouch2) {
+        let cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        let cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        let prevCx = (prevTouch1.x + prevTouch2.x) / 2;
+        let prevCy = (prevTouch1.y + prevTouch2.y) / 2;
+
+        let prevDist = Math.hypot(prevTouch1.x - prevTouch2.x, prevTouch1.y - prevTouch2.y);
+        let curDist  = Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
+                                   e.touches[0].clientY - e.touches[1].clientY);
+        let scale = prevDist / curDist;
+        spherical.r = Math.max(200, Math.min(2500, spherical.r * scale));
+
+        let dx = cx - prevCx, dy = cy - prevCy;
+        spherical.theta -= dx * 0.004;
+        spherical.phi = Math.max(0.05, Math.min(Math.PI * 0.48, spherical.phi + dy * 0.004));
+
+        prevTouch1 = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+        prevTouch2 = {x: e.touches[1].clientX, y: e.touches[1].clientY};
+        updateCamera();
+        renderOnce();
+    }
+}, { passive: false });
+
+renderer.domElement.addEventListener('touchend', e => {
+    if (e.touches.length === 0) { prevTouch1 = null; prevTouch2 = null; }
+    else if (e.touches.length === 1) {
+        prevTouch1 = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+        prevTouch2 = null;
+    }
+}, { passive: false });
+
+// Mouse support (for testing on desktop)
+let isDragging = false, prevMouse = {x:0,y:0};
+renderer.domElement.addEventListener('mousedown', e => { isDragging=true; prevMouse={x:e.clientX,y:e.clientY}; });
+window.addEventListener('mouseup', () => { isDragging=false; });
+window.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    spherical.theta -= (e.clientX-prevMouse.x)*0.005;
+    spherical.phi = Math.max(0.05, Math.min(Math.PI*0.48, spherical.phi+(e.clientY-prevMouse.y)*0.005));
+    prevMouse = {x:e.clientX,y:e.clientY};
+    updateCamera(); renderOnce();
+});
+renderer.domElement.addEventListener('wheel', e => {
+    spherical.r = Math.max(200, Math.min(2500, spherical.r+e.deltaY*0.5));
+    updateCamera(); renderOnce(); e.preventDefault();
+}, { passive: false });
+
+// ── Resize ────────────────────────────────────────────
+function onResize() {
+    // Use setTimeout to let iOS finish updating layout dimensions after rotation
+    setTimeout(() => {
+        const w = wrap.clientWidth, h = wrap.clientHeight;
+        renderer.setSize(w, h);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderOnce();
+    }, 100);
+}
+
+window.addEventListener('resize', onResize);
+window.addEventListener('orientationchange', onResize);
+
+// ── Lighting ──────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0xfff5e0, 0.6));
+const sunLight = new THREE.DirectionalLight(0xfffbe8, 1.0);
+sunLight.position.set(300, 800, 400);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.width = sunLight.shadow.mapSize.height = 1024; // smaller on mobile
+sunLight.shadow.camera.near=10; sunLight.shadow.camera.far=3000;
+sunLight.shadow.camera.left=sunLight.shadow.camera.bottom=-800;
+sunLight.shadow.camera.right=sunLight.shadow.camera.top=800;
+scene.add(sunLight);
+const fillLight = new THREE.DirectionalLight(0xd0e8ff, 0.3);
+fillLight.position.set(-400, 200, -300);
+scene.add(fillLight);
+
+// ── Ground ────────────────────────────────────────────
+const ground = new THREE.Mesh(
+    new THREE.CircleGeometry(600, 48),
+    new THREE.MeshLambertMaterial({ color: 0xe8e2d4 })
+);
+ground.rotation.x = -Math.PI/2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// ═══════════════════════════════════════════════════════
+// FIBONACCI TREE
+// ═══════════════════════════════════════════════════════
+const FIB = [1,1,2,3,5,8,13,21,34,55,89,144,233,377,610,987,1597];
+const MATURE='mature', YOUNG='young';
+let treeGroup = null;
+
+function rotateAround(v, axis, theta) {
+    let cos=Math.cos(theta), sin=Math.sin(theta);
+    let dot=v.x*axis.x+v.y*axis.y+v.z*axis.z;
+    return new THREE.Vector3(
+        v.x*cos+(axis.y*v.z-axis.z*v.y)*sin+axis.x*dot*(1-cos),
+        v.y*cos+(axis.z*v.x-axis.x*v.z)*sin+axis.y*dot*(1-cos),
+        v.z*cos+(axis.x*v.y-axis.y*v.x)*sin+axis.z*dot*(1-cos)
+    );
+}
+
+function randomPerpAxis(d) {
+    let arb = (Math.abs(d.y)<0.9) ? new THREE.Vector3(0,1,0) : new THREE.Vector3(1,0,0);
+    let perp = new THREE.Vector3().crossVectors(arb,d).normalize();
+    return rotateAround(perp, d, srandRange(0, Math.PI*2)).normalize();
+}
+
+function lerpColor(c1, c2, t) {
+    return new THREE.Color().lerpColors(new THREE.Color(c1), new THREE.Color(c2), t);
+}
+
+function buildBranch(group, x1,y1,z1, dir, len, depth, maxDepth, age, pathHash) {
+    if (depth<0 || len<1) return;
+
+    let x2=x1+dir.x*len, y2=y1+dir.y*len, z2=z1+dir.z*len;
+    let t=1-depth/maxDepth, tNext=1-(depth-1)/maxDepth;
+    let colS=lerpColor(params.trunkColor,params.twigColor,t);
+    let colE=lerpColor(params.trunkColor,params.twigColor,tNext);
+
+    let fibIdx =Math.min(depth+1, FIB.length-1);
+    let fibBase=Math.min(maxDepth+1, FIB.length-1);
+    let rStart=Math.max(0.3, params.baseRadius*FIB[fibIdx]/FIB[fibBase]);
+    let rEnd  =Math.max(0.3, params.baseRadius*FIB[Math.min(depth,FIB.length-1)]/FIB[fibBase]);
+
+    let midX=(x1+x2)/2, midY=(y1+y2)/2, midZ=(z1+z2)/2;
+    const geo = new THREE.CylinderGeometry(rEnd, rStart, len, 12, 1);
+
+    const colors=[];
+    const pos=geo.attributes.position;
+    for (let i=0; i<pos.count; i++) {
+        let frac=(pos.getY(i)+len/2)/len;
+        let c=new THREE.Color().lerpColors(colS,colE,frac);
+        colors.push(c.r,c.g,c.b);
+    }
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(colors,3));
+
+    const mesh=new THREE.Mesh(geo, new THREE.MeshLambertMaterial({vertexColors:true}));
+    mesh.castShadow=true; mesh.receiveShadow=true;
+    mesh.position.set(midX,midY,midZ);
+    const branchDir=new THREE.Vector3(dir.x,dir.y,dir.z).normalize();
+    mesh.quaternion.copy(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),branchDir));
+    group.add(mesh);
+
+    if (depth===0) {
+        if (age===YOUNG) {
+            let leafLen=10+nodeRandRange(pathHash,10,0,6), leafW=leafLen*0.38;
+            const ls=new THREE.Shape();
+            ls.moveTo(0,0);
+            ls.bezierCurveTo( leafW,leafLen*.25, leafW,leafLen*.75,0,leafLen);
+            ls.bezierCurveTo(-leafW,leafLen*.75,-leafW,leafLen*.25,0,0);
+            const leaf=new THREE.Mesh(
+                new THREE.ShapeGeometry(ls,8),
+                new THREE.MeshLambertMaterial({color:params.leafColor,side:THREE.DoubleSide})
+            );
+            leaf.castShadow=true;
+            leaf.position.set(x2,y2,z2);
+            leaf.quaternion.copy(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),branchDir));
+            leaf.rotateOnWorldAxis(branchDir, nodeRandRange(pathHash,11,0,Math.PI*2));
+            group.add(leaf);
+        } else {
+            const PETAL_N=5, flowerR=7;
+            const center=new THREE.Mesh(
+                new THREE.SphereGeometry(flowerR*.35,8,8),
+                new THREE.MeshLambertMaterial({color:0xffdd88})
+            );
+            center.castShadow=true;
+            center.position.set(x2,y2,z2);
+            group.add(center);
+
+            const ps=new THREE.Shape();
+            let pw=flowerR*.38,ph=flowerR;
+            ps.moveTo(0,0);
+            ps.bezierCurveTo( pw,ph*.25, pw,ph*.75,0,ph);
+            ps.bezierCurveTo(-pw,ph*.75,-pw,ph*.25,0,0);
+            const petalMat=new THREE.MeshLambertMaterial({color:params.petalColor,side:THREE.DoubleSide});
+            const baseQuat=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1),branchDir);
+
+            for (let i=0;i<PETAL_N;i++) {
+                const petal=new THREE.Mesh(new THREE.ShapeGeometry(ps,8),petalMat);
+                petal.castShadow=true;
+                petal.position.set(x2,y2,z2);
+                const spinQ=new THREE.Quaternion().setFromAxisAngle(branchDir,(Math.PI*2/PETAL_N)*i);
+                petal.quaternion.copy(spinQ.multiply(baseQuat));
+                group.add(petal);
+            }
+        }
+        return;
+    }
+
+    let phi=Math.pow(params.lenRatio,depth/maxDepth);
+    let baseAngle=(params.angle*Math.PI/180)*(1+(depth/maxDepth)*0.3);
+
+    // Deterministic choices for this node
+    let planeAz  = nodeRandRange(pathHash, 0, 0, Math.PI*2);
+    let swap     = nodeRand(pathHash, 1) > 0.5;
+    let nextLenL = len*phi*(1+nodeRandRange(pathHash, 2, -0.04, 0.04));
+    let nextLenR = len*phi*(1+nodeRandRange(pathHash, 3, -0.04, 0.04));
+
+    // Derive perpendicular axis from deterministic azimuth
+    let anyVec = (Math.abs(dir.y)<0.9) ? new THREE.Vector3(0,1,0) : new THREE.Vector3(1,0,0);
+    let basePerp = new THREE.Vector3().crossVectors(anyVec, dir).normalize();
+    let planeAxis = rotateAround(basePerp, dir, planeAz).normalize();
+
+    if (age===YOUNG) {
+        let j = nodeRandRange(pathHash, 4, -1,1) * baseAngle * 0;
+        // YOUNG: grow straight → MATURE; derive child pathHash
+        let childHash = (pathHash * 1664525 + 1013904223) >>> 0;
+        buildBranch(group,x2,y2,z2, rotateAround(dir,planeAxis,j).normalize(),
+                    nextLenL,depth-1,maxDepth,MATURE, childHash);
+    } else {
+        let ageL = swap ? YOUNG : MATURE;
+        let ageR = swap ? MATURE : YOUNG;
+        // Derive two deterministic child hashes (left = hash*prime, right = hash*prime2)
+        let hashL = (pathHash * 1664525  + 1013904223) >>> 0;
+        let hashR = (pathHash * 22695477 + 1)          >>> 0;
+        buildBranch(group,x2,y2,z2, rotateAround(dir,planeAxis,  baseAngle).normalize(),
+                    nextLenL,depth-1,maxDepth,ageL, hashL);
+        buildBranch(group,x2,y2,z2, rotateAround(dir,planeAxis, -baseAngle).normalize(),
+                    nextLenR,depth-1,maxDepth,ageR, hashR);
+    }
+}
+
+let _lastBuiltSeed = null;
+
+function buildTree() {
+    if (treeGroup) {
+        scene.remove(treeGroup);
+        treeGroup.traverse(o => { if(o.geometry)o.geometry.dispose(); if(o.material)o.material.dispose(); });
+    }
+    _globalSeed = params.seed;
+    _lastBuiltSeed = params.seed;
+    treeGroup = new THREE.Group();
+    buildBranch(treeGroup,0,0,0,new THREE.Vector3(0,1,0),
+                params.trunkLen,params.depth,params.depth,YOUNG, params.seed >>> 0);
+    scene.add(treeGroup);
+    renderOnce();
+}
+
+function applyBgColor() {
+    renderer.setClearColor(new THREE.Color(params.bgColor),1);
+    document.getElementById('canvas-wrap').style.background=params.bgColor;
+    renderOnce();
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER LOOP (on-demand)
+// ═══════════════════════════════════════════════════════
+let autoPlaying = false, needsRender = true, animId = null;
+
+// Auto-play state
+const GROW_MIN = 3;       // actual depth min (displays as 4)
+const GROW_MAX = 15;      // actual depth max (displays as 16)
+const GROW_INTERVAL = 1800;  // ms per growth step
+const LINGER_TIME   = 6000;  // ms to linger at max depth
+let _apDepth     = GROW_MIN;
+let _apLastStep  = 0;
+let _apLingering = false;
+
+function renderOnce() { needsRender = true; }
+
+function autoPlayStep(now) {
+    if (!autoPlaying) return;
+    let elapsed = now - _apLastStep;
+
+    if (_apLingering) {
+        if (elapsed >= LINGER_TIME) {
+            // Restart growth from min
+            _apDepth     = GROW_MIN;
+            _apLingering = false;
+            _apLastStep  = now;
+            params.depth = _apDepth;
+            syncDepthUI();
+            buildTree();
+        }
+    } else {
+        if (elapsed >= GROW_INTERVAL) {
+            _apLastStep = now;
+            if (_apDepth < GROW_MAX) {
+                _apDepth++;
+                params.depth = _apDepth;
+                syncDepthUI();
+                buildTree();
+            } else {
+                _apLingering = true;
+            }
+        }
+    }
+}
+
+function syncDepthUI() {
+    const el = document.getElementById('depth');
+    if (el) el.value = params.depth;
+    const vEl = document.getElementById('depth-value');
+    if (vEl) vEl.textContent = params.depth + 1;
+}
+
+function animate() {
+    animId = requestAnimationFrame(animate);
+    const now = performance.now();
+    if (autoPlaying) {
+        spherical.theta += 0.008;
+        updateCamera();
+        autoPlayStep(now);
+        renderer.render(scene, camera);
+    } else if (needsRender) {
+        renderer.render(scene, camera);
+        needsRender = false;
+    }
+}
+
+// ═══════════════════════════════════════════════════════
+// UI
+// ═══════════════════════════════════════════════════════
+let panelExpanded = false;
+function togglePanel() {
+    panelExpanded = !panelExpanded;
+    document.getElementById('panel-content').classList.toggle('collapsed', !panelExpanded);
+    document.getElementById('panel-toggle-btn').textContent = panelExpanded ? 'Hide ▾' : 'Show ▴';
+}
+
+function toggleAutoPlay() {
+    autoPlaying = !autoPlaying;
+    const btn  = document.getElementById('autoRotateBtn');
+    const hint = document.getElementById('drag-hint');
+    if (autoPlaying) {
+        // Start growth from current depth
+        _apDepth     = params.depth;
+        _apLingering = false;
+        _apLastStep  = performance.now();
+        btn.textContent = '⏹ Stop';
+        btn.classList.add('btn-green');
+        hint.textContent = 'Playing…';
+    } else {
+        btn.textContent = '▶ Grow';
+        btn.classList.remove('btn-green');
+        hint.textContent = 'Drag to rotate · Pinch to zoom';
+        renderOnce();
+    }
+}
+
+function updateParam(name,value) {
+    if (name === 'depth' && autoPlaying) toggleAutoPlay();
+    params[name]=value;
+    let el=document.getElementById(name+'-value');
+    if(el) {
+        if (name === 'depth') el.textContent = (+value + 1);
+        else el.textContent=(+value).toFixed(name==='lenRatio'?2:0);
+    }
+    buildTree();
+}
+
+function updateColor(name,value) {
+    params[name]=value;
+    if(name==='bgColor') applyBgColor(); else buildTree();
+}
+
+function updateSeed() {
+    let v=parseInt(document.getElementById('seed-input').value);
+    if(v>0){params.seed=v;buildTree();}else updateSeedDisplay();
+}
+function updateSeedDisplay(){document.getElementById('seed-input').value=params.seed;}
+function previousSeed(){params.seed=Math.max(1,params.seed-1);updateSeedDisplay();buildTree();}
+function nextSeed(){params.seed+=1;updateSeedDisplay();buildTree();}
+function randomSeedAndUpdate(){params.seed=Math.floor(Math.random()*999999)+1;updateSeedDisplay();buildTree();}
+
+function resetParameters() {
+    if (autoPlaying) toggleAutoPlay();
+    params={...defaultParams};
+    ['depth','trunkLen','lenRatio','angle','baseRadius'].forEach(k=>{
+        let el=document.getElementById(k); if(el)el.value=params[k];
+        let vEl=document.getElementById(k+'-value');
+        if(vEl) vEl.textContent = k==='depth' ? params[k]+1 : (+params[k]).toFixed(k==='lenRatio'?2:0);
+    });
+    ['trunkColor','twigColor','petalColor','leafColor','bgColor'].forEach(k=>{
+        let el=document.getElementById(k); if(el)el.value=params[k];
+    });
+    updateSeedDisplay(); applyBgColor(); buildTree();
+}
+
+// ── Init ──────────────────────────────────────────────
+// Prevent pinch-zoom on the panel (two-finger gestures should not zoom)
+document.getElementById('panel').addEventListener('touchmove', e => {
+    if (e.touches.length > 1) e.preventDefault();
+}, { passive: false });
+
+// Stop auto-play immediately when user touches the depth slider
+document.getElementById('depth').addEventListener('touchstart', () => {
+    if (autoPlaying) toggleAutoPlay();
+}, { passive: true });
+
+applyBgColor();
+buildTree();
+animate();
+
+// Bind seed buttons via touchend+preventDefault to avoid iOS double-tap fullscreen exit
+function bindTouchBtn(id, fn) {
+    const el = document.getElementById(id);
+    el.addEventListener('touchend', e => { e.preventDefault(); fn(); }, { passive: false });
+    el.addEventListener('click', fn); // fallback for desktop
+}
+bindTouchBtn('btn-prev-seed',         previousSeed);
+bindTouchBtn('btn-next-seed',         nextSeed);
+bindTouchBtn('btn-random-seed',       randomSeedAndUpdate);
+bindTouchBtn('btn-random-seed-action', randomSeedAndUpdate);
 </script>
 </body>
 </html>
