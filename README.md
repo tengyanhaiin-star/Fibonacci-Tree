@@ -85,7 +85,7 @@ This is achieved by assigning random values through a path-keyed hash rather tha
 - **MeshLambertMaterial** throughout for efficient diffuse shading
 - Lighting: ambient warm light + directional sun + cool fill light + shadow mapping
 - Rendering is **on-demand** when idle (no continuous RAF loop), switching to continuous only during rotation or Grow playback — keeping CPU usage low
-- Fonts: **Inter** (UI) · **Courier Prime** (numeric values)
+- Font: **Roboto**
 
 ---
 
@@ -94,5 +94,4 @@ This is achieved by assigning random values through a path-keyed hash rather tha
 | Library | Version | Source |
 |---------|---------|--------|
 | Three.js | r128 | cdnjs |
-| Inter | — | Google Fonts |
-| Courier Prime | — | Google Fonts |
+| [Roboto](https://fonts.google.com/specimen/Roboto) | — | Google Fonts |
