@@ -96,6 +96,8 @@ This is achieved by assigning random values through a path-keyed hash rather tha
 | [Three.js](https://threejs.org/) | r128 | cdnjs |
 | [Roboto](https://fonts.google.com/specimen/Roboto) | — | Google Fonts |
 
+---
+
 ## License
  
 MIT — see [LICENSE](LICENSE) for details.
