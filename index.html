@@ -230,20 +230,6 @@
         }
 
         /* Colors grid */
-        .colors-grid {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 8px;
-        }
-        .color-item { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-        .color-item label { font-size: 9px; color: var(--anthropic-mid-gray); text-align: center; line-height: 1.2; }
-        .color-item input[type="color"] {
-            width: 36px; height: 36px;
-            border: none; border-radius: 8px;
-            cursor: pointer; background: none; padding: 0;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.12);
-        }
-
         /* Buttons */
         .btn {
             flex: 1;
@@ -353,32 +339,6 @@
                 </div>
             </div>
 
-            <!-- Colors -->
-            <div class="section">
-                <div class="section-title">Colors</div>
-                <div class="colors-grid">
-                    <div class="color-item">
-                        <input type="color" id="trunkColor" value="#5c3d1e" onchange="updateColor('trunkColor',this.value)">
-                        <label>Trunk</label>
-                    </div>
-                    <div class="color-item">
-                        <input type="color" id="twigColor" value="#788c5d" onchange="updateColor('twigColor',this.value)">
-                        <label>Twig</label>
-                    </div>
-                    <div class="color-item">
-                        <input type="color" id="petalColor" value="#d97757" onchange="updateColor('petalColor',this.value)">
-                        <label>Flower</label>
-                    </div>
-                    <div class="color-item">
-                        <input type="color" id="leafColor" value="#5a8a3c" onchange="updateColor('leafColor',this.value)">
-                        <label>Leaf</label>
-                    </div>
-                    <div class="color-item">
-                        <input type="color" id="bgColor" value="#f5f0e8" onchange="updateColor('bgColor',this.value)">
-                        <label>BG</label>
-                    </div>
-                </div>
-            </div>
         </div>
 
     </div>
@@ -824,11 +784,6 @@ function updateParam(name,value) {
     buildTree();
 }
 
-function updateColor(name,value) {
-    params[name]=value;
-    if(name==='bgColor') applyBgColor(); else buildTree();
-}
-
 function updateSeed() {
     let v=parseInt(document.getElementById('seed-input').value);
     if(v>0){params.seed=v;buildTree();}else updateSeedDisplay();
@@ -845,9 +800,6 @@ function resetParameters() {
         let el=document.getElementById(k); if(el)el.value=params[k];
         let vEl=document.getElementById(k+'-value');
         if(vEl) vEl.textContent = k==='depth' ? params[k]+1 : (+params[k]).toFixed(k==='lenRatio'?2:0);
-    });
-    ['trunkColor','twigColor','petalColor','leafColor','bgColor'].forEach(k=>{
-        let el=document.getElementById(k); if(el)el.value=params[k];
     });
     updateSeedDisplay(); applyBgColor(); buildTree();
 }
