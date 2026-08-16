@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <title>Fibonacci Tree</title>
@@ -37,7 +37,10 @@
         /* Canvas always fills the full screen */
         #canvas-wrap {
             position: fixed;
-            inset: 0;
+            top: 0;
+            left: env(safe-area-inset-left, 0);
+            right: env(safe-area-inset-right, 0);
+            bottom: 0;
             background: #f5f0e8;
             overflow: hidden;
         }
@@ -68,6 +71,7 @@
             flex-direction: column;
             max-height: 70vh;
             z-index: 10;
+            padding-bottom: env(safe-area-inset-bottom, 0);
         }
 
         /* Drag handle */
